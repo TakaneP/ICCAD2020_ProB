@@ -1,3 +1,5 @@
 Can check parser correctness
 put files in the same directory
 Usage: ./run_test <evaluator path> <case file path>
+
+Parser in this directory is good for all 3 cases now.
