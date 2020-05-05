@@ -100,6 +100,8 @@ RoutingGraph* parser(RoutingGraph* routingGraph, string file)
 	Cell& cell = routingGraph->get_cellInstance(cellName);
 	cell.masterCellName = masterCellName;
 	cell.movable = (movable == "Movable")? true:false;
+	cell.x = rowPos-1;
+	cell.y = colPos-1;
     }
     int numNets;
     fin >> type >> numNets;
@@ -216,13 +218,23 @@ void calculate_demand(RoutingGraph* routingGraph)
     std::unordered_map<std::string, std::unordered_map<std::string, std::unordered_map<int, int>>>& adjHGGrid = routingGraph->get_adjHGGrid();
     std::unordered_map<std::string, std::vector<std::pair<Point,Point>>>& routingSegments = routingGraph->get_routingSegments();
     unordered_map<string, MasterCell> masterCells = routingGraph->get_masterCells();
-       
+    std::unordered_map<std::string, Net>& nets = routingGraph->get_nets();
+    for(auto it = nets.begin(); it != nets.end(); ++it) {
+        Net& net = it->second;
+        for(auto _it = net.pins.begin(); _it != net.pins.end(); ++_it) {
+            Cell& cell = cellInstances[_it->first];
+	    int x = cell.x;
+	    int y = cell.y;
+	    int pinLayer = masterCells[cell.masterCellName].pins[_it->second].layer;
+	    grids[x][y][pinLayer].insert_net(it->first);
+        }
+    }   
     for(int i = 0; i < row; i++) {
         for(int j = 0;j < column; j++) {
 	    unordered_set<string> clCur = placement[i][j];
 	    unordered_set<string> clPre, clNxt;
 	    if(j > 0) clPre = placement[i][j-1];
-	    if(j < row-1) clNxt = placement[i][j+1];
+	    if(j < column-1) clNxt = placement[i][j+1];
 	    unordered_map<string,int> mcCntCur, mcCntPre, mcCntNxt;
 	    for(auto it = clCur.begin(); it != clCur.end(); ++it) {
 	        mcCntCur[cellInstances[*it].masterCellName]++;
@@ -250,7 +262,7 @@ void calculate_demand(RoutingGraph* routingGraph)
 	    for(auto it = adjHGGrid.begin(); it != adjHGGrid.end(); ++it) {
                 for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
                     for(auto __it = _it->second.begin(); __it != _it->second.end(); ++__it) {
-                        string MC1 = it->first, MC2 = _it->first;
+			string MC1 = it->first, MC2 = _it->first;
                         int layer = __it->first, extraDemand = __it->second;
                         int pairCntPre = 0, pairCntNxt = 0;
 			if(MC1 == MC2) {
@@ -292,7 +304,8 @@ void calculate_demand(RoutingGraph* routingGraph)
         for(int j = 0; j < column; j++) {
 	    for(int k = 0; k < layer;k++) {
 		grids[i][j][k].add_net_demand();
-		printf("%d %d %d %d\n", i+1,j+1,k+1,grids[i][j][k].get_demand());
+		
+                printf("%d %d %d %d\n", i+1,j+1,k+1,grids[i][j][k].get_demand());
 	    }
 	}
     }
