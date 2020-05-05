@@ -1,0 +1,4 @@
+#!/bin/bash
+./parser cases/case1.txt >test
+./testParser.py 2>err
+rm test err
