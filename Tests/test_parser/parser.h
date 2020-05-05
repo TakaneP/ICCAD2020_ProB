@@ -36,7 +36,8 @@ struct Cell{
     Cell(std::string mc, bool m): masterCellName(mc), movable(m) {}
     
     std::string masterCellName; 
-    bool movable;    
+    bool movable;
+    int x,y;    
 };
 
 class Gcell{
