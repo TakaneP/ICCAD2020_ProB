@@ -1,6 +1,10 @@
 #!/bin/bash
+if [ $# != 2 ]; then
+    echo "Usage: ./run_test <evaluator path> <case path>"
+    exit 1
+fi 
 make clean
 make
-./parser cases/case1.txt >test
-./testParser.py 2>err
+./parser $2 >test
+./testParser.py $1 $2 2>err
 rm test err
