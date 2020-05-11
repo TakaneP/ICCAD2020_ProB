@@ -163,17 +163,20 @@ void del_mc(int x, int y, int tp) {
 int main()
 {
     freopen("case3.txt","r",stdin);
-    //freopen("out.txt","w",stdout);
     int k;
+    //Cell Max Move
     cin >> str >> max_move;
+    //Grid Boundary
     cin >> str >> k >> k >> k;
     row = k;
     cin >> k;
     col = k;
+    //Layer
     cin >> str >> lay;
     for (int i = 0 ; i < lay ; i++) {
         cin >> str >> str >> str >> str >> lay_lim[i];
     }
+    //Initial each layer's routing supply
     for (int i = 0 ; i < row ; i++) {
         vector<vector<int>>add;
         vector<map<int,int>>add2;
@@ -189,6 +192,7 @@ int main()
             }
         }
     }
+    //Non Default Supply
     cin >> str >> k;
     for (int i = 0 ; i < k ; i++) {
         int x, y, z;
@@ -198,16 +202,16 @@ int main()
         cin >> del;
         fix_supply[x][y][z] += del;
     }
+    //Master Cell
     cin >> str >> k;
     master_cell.resize(k);
     for (int i = 0 ; i < k ; i++) {
         int p, b;
-        cin >> str >> str;
-        cin >> p >> b;
+        cin >> str >> str >> p >> b;
         for (int j = 0 ; j < p ; j++) {
             string s1, s2;
             cin >> str >> s1 >> s2;
-            int x = to_int(s1, 1);
+            int x = to_int(s1, 1); //to_int will sub 1 and return 
             int y = to_int(s2, 1);
             master_cell[i].pin.insert({x,y});
         }
@@ -215,17 +219,18 @@ int main()
             string s1, s2;
             int c;
             cin >> str >> s1 >> s2 >> c;
-            //int x = to_int(s1, 1);
+            //int x = to_int(s1, 1); Blockage name can be discarded
             int y = to_int(s2, 1);
-            master_cell[i].blkg[y] += c;
+            master_cell[i].blkg[y] += c; //Calculate the demand caused by the blockage on this master cell, same layer will be summed up
         }
     }
+    //Extra Demand
     cin >> str >> k;
     for (int i = 0 ; i < k ; i++) {
+        bool op;
+        int x, y, pen, pos; //MC1 MC2 penalty layer
         cin >> str;
-        int op;
         op = (str[0] == 'a'); //same: 0 , adj : 1
-        int x, y, pen, pos;
         cin >> str;
         x = to_int(str, 2);
         cin >> str;
@@ -235,31 +240,33 @@ int main()
         cin >> pen;
         if (op == 0){
             master_cell[x].same[{y,pos}] += pen;
-            master_cell[y].same[{x,pos}] += pen;
+            //master_cell[y].same[{x,pos}] += pen;
         }
         else {
             master_cell[x].dif[{y,pos}] += pen;
-            master_cell[y].dif[{x,pos}] += pen;
+            //master_cell[y].dif[{x,pos}] += pen; Reverse when calculating
         }
     }
+    //Cell Instance
     cin >> str >> k;
     for (int i = 0 ; i < k ; i++) {
         int x, y, tp;
         cin >> str >> str >> str;
-        tp = to_int(str,2);
+        tp = to_int(str,2); //MC
         cin >> x >> y >> str;
         x--, y--;
         bool mov = (str[0] == 'M');
         cell.push_back({tp,mov,x,y});
-        add_mc(x,y,tp);
+        add_mc(x,y,tp); //Update graph
     }
+    //Net
     cin >> str >> k;
     for (int i = 0 ; i < k ; i++) {
         int x;
         cin >> str >> str >> x >> str;
         int Min = 0;
         if (str[0] != 'N') {
-            Min = to_int(str,1);
+            Min = to_int(str,1); //MinRoutingConstraint
         }
         vector<pair<int,int>>add;
         for (int j = 0 ; j < x ; j++) {
@@ -275,7 +282,9 @@ int main()
         } 
         net.push_back({Min,add,{}});
     }
+    //Build segment tree
     build_ini_seg();
+    //Initial routing segments
     cin >> str >> k;
     for (int i = 0 ; i < k ; i++) {
         int x1, x2 , y1, y2, z1, z2;
