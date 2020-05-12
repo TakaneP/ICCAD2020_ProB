@@ -14,7 +14,7 @@ struct cell {
     bool moveable;
     int x, y;
 };
-struct seg
+struct Seg
 {
     int sx,ex,sy,ey,sz,ez;
 };
@@ -25,7 +25,7 @@ struct segtree
 struct net {
     int min_lay;
     vector<pair<int,int>>net;
-    vector<seg>seg;
+    vector<Seg>seg;
 };
 int max_move;
 int default_supply;
@@ -254,7 +254,7 @@ int main()
         }
         else {
             master_cell[x].dif[{y,pos}] += pen;
-            master_cell[y].dif[{x,pos}] += pen; Reverse when calculating
+            master_cell[y].dif[{x,pos}] += pen;
         }
     }
     //Cell Instance
