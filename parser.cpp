@@ -80,10 +80,10 @@ int query(int x, int l, int r, int ql, int qr, int lay, int pos) {
 //Trigger query function
 int getsupply(int x1, int x2, int y1, int y2, int z) {
     if (z % 2 == 0) {
-        return query(1, 1, col, y1, y2, z, x1);
+        return query(1, 0, col-1, y1, y2, z, x1);
     }
     else {
-        return query(1, 1, row, x1, x2, z, y1);
+        return query(1, 0, row-1, x1, x2, z, y1);
     }
 }
 //Trigger Biuld function
@@ -91,12 +91,12 @@ void build_ini_seg() {
     for (int i = 0 ; i < lay ; i++) {
         if (i % 2 == 0) {
             for (int j = 0 ; j < row ; j++) {
-                build(1, 1, col, i, j);
+                build(1, 0, col-1, i, j);
             }
         }
         else {
             for (int j = 0 ; j < col ; j++) {
-                build(1, 1, row, i, j);
+                build(1, 0, row-1, i, j);
             }
         }
     }
