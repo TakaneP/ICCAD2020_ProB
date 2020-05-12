@@ -40,12 +40,15 @@ vector<vector<map<int,int>>>cell_cont;
 int to_int(string &s, int k) {
     return stoi(s.substr(k)) - 1;
 }
+//Minimum value in the interval
 void pushup(int x, int lay, int pos) {
+    //lay: layer pos: row/column, decided by routing direction, x: index of the node (node in the segement tree)
     node[lay][pos][x].mi = min(node[lay][pos][x<<1].mi, node[lay][pos][x<<1|1].mi);
 }
+//Recursive Build Segment tree
 void build(int x, int l, int r,int lay, int pos) {
     if (l == r) {
-        if (lay % 2 == 0)
+        if (lay % 2 == 0) //vertical or horizontal
             node[lay][pos][x].mi = fix_supply[pos][l][lay];
         else
             node[lay][pos][x].mi = fix_supply[l][pos][lay];
@@ -56,6 +59,9 @@ void build(int x, int l, int r,int lay, int pos) {
     build(x<<1|1, mid + 1, r, lay, pos);
     pushup(x, lay, pos);
 }
+//Get supply-demand
+//x: 1, l: 0, r: |row|-1, or |column| -1, ql: query's beginning index, including this index
+//qr: query's ending index, including this index, lay: layer, pos: query which row/column
 int query(int x, int l, int r, int ql, int qr, int lay, int pos) {
     if (ql <= l && qr >= r) {
         return node[lay][pos][x].mi;
@@ -71,6 +77,7 @@ int query(int x, int l, int r, int ql, int qr, int lay, int pos) {
         return min(query(x<<1, l, mid, ql, qr, lay, pos), query(x<<1|1, mid + 1, r, ql, qr, lay, pos));
     }
 }
+//Trigger query function
 int getsupply(int x1, int x2, int y1, int y2, int z) {
     if (z % 2 == 0) {
         return query(1, 1, col, y1, y2, z, x1);
@@ -79,6 +86,7 @@ int getsupply(int x1, int x2, int y1, int y2, int z) {
         return query(1, 1, row, x1, x2, z, y1);
     }
 }
+//Trigger Biuld function
 void build_ini_seg() {
     for (int i = 0 ; i < lay ; i++) {
         if (i % 2 == 0) {
@@ -93,6 +101,7 @@ void build_ini_seg() {
         }
     }
 }
+//Add cell instances into the ggrid, Extra Demand
 void add_mc(int x, int y, int tp) {
     for (auto i:master_cell[tp].same) {
         if (cell_cont[x][y].count(i.F.F)) {
@@ -124,6 +133,7 @@ void add_mc(int x, int y, int tp) {
     }
     cell_cont[x][y][tp]++;
 }
+//Remove Cell instances for the ggrid
 void del_mc(int x, int y, int tp) {
     cell_cont[x][y][tp]--;
     if (cell_cont[x][y][tp] == 0) {
@@ -240,11 +250,11 @@ int main()
         cin >> pen;
         if (op == 0){
             master_cell[x].same[{y,pos}] += pen;
-            //master_cell[y].same[{x,pos}] += pen;
+            master_cell[y].same[{x,pos}] += pen;
         }
         else {
             master_cell[x].dif[{y,pos}] += pen;
-            //master_cell[y].dif[{x,pos}] += pen; Reverse when calculating
+            master_cell[y].dif[{x,pos}] += pen; Reverse when calculating
         }
     }
     //Cell Instance
