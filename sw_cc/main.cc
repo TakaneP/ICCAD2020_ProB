@@ -10,6 +10,7 @@ int main(int argc, char* argv[])
     string caseFile = argv[1];
     Parser* parser = new Parser(*routingGraph, caseFile);
     parser->run();
+    delete parser;
     //for testing
     /*for(int i = 0;i < routingGraph->row;i++) {
         for(int j = 0; j < routingGraph->column; j++) {
