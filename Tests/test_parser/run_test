@@ -6,5 +6,6 @@ fi
 make clean
 make
 ./parser $2 >test
+chmod 770 testParser.py
 ./testParser.py $1 $2 2>err
 rm test err
