@@ -25,7 +25,7 @@ def main():
                 print("Correct: " + str(golden))
                 print("Yours: " + str(demand))
                 exit()
-
+    print("All OK")
 
 
 
