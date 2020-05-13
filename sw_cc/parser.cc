@@ -1,54 +1,155 @@
 #include<bits/stdc++.h>
+#include "./parser.h"
 #include "data_structure.h"
-
 using namespace std;
 
-void RoutingGraph::add_cell_demand_into_graph(int x, int y, int MCtype) {
-    //Add blockage demand
-    MasterCell& masterCell = masterCells[MCtype];
-    for(auto it = masterCell.blockages.begin(); it != masterCell.blockages.end(); ++it) {
-        grids[x][y][it->first].demand += it->second;
-    }
-    //Add sameGGrid rule
-    for(auto it = sameGGrid[MCtype].begin(); it != sameGGrid[MCtype].end(); ++it) {
-        int MCtype2 = it->first;
-	int originalPairCnt = min(cellCount[x][y][MCtype], cellCount[x][y][MCtype2]);
-	int afterPairCnt = min(cellCount[x][y][MCtype] + 1, cellCount[x][y][MCtype2]);
-        for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
-	    grids[x][y][_it->first].demand += _it->second * (afterPairCnt - originalPairCnt);
-	}	
-    }
-    //Add adjHGGrid rule
-    for(auto it = adjHGGrid[MCtype].begin(); it != adjHGGrid[MCtype].end(); ++it) {
-        int MCtype2 = it->first, preOriginalPairCnt = 0, preAfterPairCnt = 0, nxtOriginalPairCnt = 0, nxtAfterPairCnt = 0;
-	//Update left
-	if(y > 0) {
-	    preOriginalPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype]);
-            preAfterPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype] + 1);
-	    for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
-                grids[x][y-1][_it->first].demand += _it->second * (preAfterPairCnt - preOriginalPairCnt);
-            }
-	}
-	//Update right
-	if(y < (column - 1)) {
-            nxtOriginalPairCnt = min(cellCount[x][y+1][MCtype2], cellCount[x][y][MCtype]);
-            nxtAfterPairCnt = min(cellCount[x][y+1][MCtype2], cellCount[x][y][MCtype] + 1);
-            for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
-                grids[x][y+1][_it->first].demand += _it->second * (nxtAfterPairCnt - nxtOriginalPairCnt);
-            }
-	}
-	//Update current
-        for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
-            grids[x][y][_it->first].demand += _it->second * (preAfterPairCnt - preOriginalPairCnt + nxtAfterPairCnt - nxtOriginalPairCnt);
-	}
-    }
-    cellCount[x][y][MCtype]++;
+int get_postfix_int(string& s, int start) {
+    return stoi(s.substr(start)) -1;
 }
 
-void RoutingGraph::add_net_demand_into_graph(int x, int y, int z, int netIndex) {
-    auto hint = grids[x][y][z].passingNets.find(netIndex);
-    if(hint == grids[x][y][z].passingNets.end()) {
-        grids[x][y][z].demand++;
-        grids[x][y][z].passingNets.insert(hint, netIndex);
+void Parser::run(void) {
+    auto f = freopen(file.c_str(), "r", stdin);
+    string type;
+    int value;
+    //Cell max move
+    cin >> type >> graph.maxCellMove;
+    //Grid boundary
+    cin >> type >> value >> value >> graph.row;
+    cin >> graph.column;
+    //Layer
+    cin >> type >> graph.layer;
+    vector<int> layerLimit(graph.layer);
+    for(int i = 0; i < graph.layer; i++) {
+        cin >> type >> type >> type >> type >> layerLimit[i];
+    }
+    //Initial each layer's routing supply
+    for(int i = 0; i < graph.row; i++) {
+        graph.grids.push_back(vector<vector<Gcell>>());
+	graph.cellCount.push_back(vector<unordered_map<int,int>>());
+	graph.placement.push_back(vector<unordered_set<int>>());
+	for(int j = 0; j < graph.column; j++) {
+	    graph.grids[i].push_back(vector<Gcell>());
+	    graph.cellCount[i].push_back(unordered_map<int,int>());
+	    graph.placement[i].push_back(unordered_set<int>());
+	    for(int k = 0; k < graph.layer; k++) {
+	        graph.grids[i][j].push_back(Gcell(layerLimit[k]));
+	    }
+	}
+    }
+    //Non default supply
+    cin >> type >> value;
+    for(int i = 0; i < value; ++i) {
+        int x,y,z,offset;
+	cin >> x >> y >> z >> offset;
+	graph.grids[x-1][y-1][z-1].capacity += offset;
+    }
+    //Master Cell
+    int pinNum, blkNum;
+    cin >> type >> value;
+    graph.masterCells.resize(value);
+    for(int i = 0; i < value; ++i) {
+        cin >> type >> type >> pinNum >> blkNum;	
+	for(int j = 0;j < pinNum; j++) {
+	    cin >> type >> type >> type;
+	    int pinLayer = get_postfix_int(type, 1);
+	    graph.masterCells[i].pins.push_back(Pin(pinLayer));
+	}
+	for(int j = 0;j < blkNum; j++) {
+	    int demand, blkLayer;
+	    cin >> type >> type >> type >> demand;
+            blkLayer = get_postfix_int(type, 1);
+	    graph.masterCells[i].blockages[blkLayer] += demand;
+	}
+    }
+    //Extra Demand
+    cin >> type >> value;
+    for(int i = 0;i < value; ++i) {
+	bool op;
+        int MC1, MC2, layerIndex, extraDemand;
+	cin >> type;
+	op = (type[0] == 'a'); //same : 0, adj: 1
+	cin >> type;
+	MC1 = get_postfix_int(type, 2);
+	cin >> type;
+	MC2 = get_postfix_int(type, 2);
+	cin >> type;
+	layerIndex = get_postfix_int(type, 1);
+	cin >> extraDemand;
+	if(!op) {
+	    graph.sameGGrid[MC1][MC2][layerIndex] = extraDemand;
+	    graph.sameGGrid[MC2][MC1][layerIndex] = extraDemand;
+	}
+	else {
+	    graph.adjHGGrid[MC1][MC2][layerIndex] = extraDemand;
+	    graph.adjHGGrid[MC2][MC1][layerIndex] = extraDemand;
+	}
+    }
+    //Cell Instances
+    cin >> type >> value;
+    for(int i = 0;i < value; ++i) {
+	int rowPos, colPos, MCtype;
+	cin >> type >> type >> type;
+	MCtype = get_postfix_int(type,2); //MC
+	cin >> rowPos >> colPos >> type;
+	graph.placement[--rowPos][--colPos].insert(i);
+	bool mov = (type[0] == 'M');
+        graph.cellInstances.push_back(Cell(MCtype, mov, rowPos, colPos));
+	graph.add_cell_demand_into_graph(rowPos, colPos, MCtype);
+    }
+    //Net
+    cin >> type >> value;
+    graph.nets.resize(value);
+    for(int i = 0; i < value; ++i) {
+	int pinNum;
+	cin >> type >> type >> pinNum >> type;
+	graph.nets[i].minRoutingLayer = (type[0] == 'N')? 0:get_postfix_int(type,1);
+	for(int j = 0; j < pinNum; j++) {
+	    cin >> type >> type;
+	    size_t found = type.find("/");
+	    string cellIns = type.substr(0,found);
+	    string pinName = type.substr(found+1);
+	    int cellIndex = get_postfix_int(cellIns, 1);
+	    int pinIndex = get_postfix_int(pinName, 1);
+	    graph.nets[i].pins.push_back({cellIndex, pinIndex});
+	    graph.cellInstances[cellIndex].connectedNets.insert(i);
+	    Cell& cell = graph.cellInstances[cellIndex];
+	    MasterCell& masterCell = graph.masterCells[cell.masterCell];
+	    graph.add_net_demand_into_graph(cell.x, cell.y, masterCell.pins[pinIndex].layer, i);
+	}
+    }
+    //Routing segments
+    cin >> type >> value;
+    for(int i = 0;i < value; ++i) {
+        int startRow, startColumn, startLayer, endRow, endColumn, endLayer;
+	cin >> startRow >> startColumn >> startLayer >> endRow >> endColumn >> endLayer >> type;
+	int netIndex = get_postfix_int(type,1);
+	startRow--;
+	startColumn--;
+	startLayer--;
+	endRow--;
+	endColumn--;
+	endLayer--;
+	if(startRow > endRow) swap(startRow, endRow);
+	else if(startColumn > endColumn) swap(startColumn, endColumn);
+	else if(startLayer > endLayer) swap(startLayer, endLayer);
+	    
+	
+	graph.nets[netIndex].routingSegments.push_back({Point( startRow, startColumn, startLayer), 
+			Point(endRow, endColumn, endLayer)});
+	if(startRow != endRow) {
+	    for(int j = startRow; j <= endRow; j++) {
+	        graph.add_net_demand_into_graph(j, startColumn, startLayer, netIndex);
+	    }
+	}
+	else if(startColumn != endColumn) {
+	    for(int j = startColumn; j <= endColumn; j++) {
+                graph.add_net_demand_into_graph(startRow, j, startLayer, netIndex);
+            }
+	}
+	else if(startLayer != endLayer) {
+	    for(int j = startLayer; j <= endLayer; j++) {
+                graph.add_net_demand_into_graph(startRow, startColumn, j, netIndex);
+            }
+	}
     }
 }
