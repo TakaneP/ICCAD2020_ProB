@@ -10,16 +10,14 @@ int main(int argc, char* argv[])
     string caseFile = argv[1];
     Parser* parser = new Parser(*routingGraph, caseFile);
     parser->run();
-    for(int i = 0;i < routingGraph->row;i++) {
+    //for testing
+    /*for(int i = 0;i < routingGraph->row;i++) {
         for(int j = 0; j < routingGraph->column; j++) {
 	    for(int k = 0; k < routingGraph->layer;k++) {
-
                 printf("%d %d %d %d\n", i+1,j+1,k+1,routingGraph->grids[i][j][k].demand);
 	    }
 	}
-    }
-    //debug_print(routingGraph);
-    //calculate_demand(routingGraph);
+    }*/
     return 0;
 }
 
