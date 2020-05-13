@@ -1,5 +1,6 @@
 Can check parser correctness
-put files in the same directory
+1. put files in the same directory
+2. chmod 770 run_test
 Usage: ./run_test <evaluator path> <case file path>
 
 Parser in this directory is good for all 3 cases now.
