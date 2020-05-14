@@ -94,7 +94,7 @@ void RoutingGraph::add_cell(int x, int y, int cellIndex) {
     //Add demand into graph
     add_cell_demand_into_graph(x, y, cellInstances[cellIndex].masterCell);
 }
-
+//Note that this function will not affect any net demands and nets
 void RoutingGraph::del_cell(int cellIndex) {
     Cell& cell = cellInstances[cellIndex];
     int x = cell.x;
