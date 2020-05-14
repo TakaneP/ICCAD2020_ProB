@@ -3,6 +3,17 @@
 #ifndef DATASTRUCTURE
 #define DATASTRUCTURE
 
+struct SegmentTreeNode{
+    int minValue;
+};
+
+class SegmentTree{
+public:
+    SegmentTreeNode node[7][55][205]; //Todo: Change this to dynamic
+    void build_ini(void);
+    void build(int treeNodeIndex, int lowerBound, int upperBound, int layer, int rowOrColIndex);
+};
+
 struct Pin{
     Pin() {}
     Pin(int l): layer(l) {}
@@ -46,11 +57,16 @@ struct Gcell{
 
 class RoutingGraph{
 public:
-    RoutingGraph() {};
+    RoutingGraph() {segmentTree = new SegmentTree;}
+    ~RoutingGraph() {delete segmentTree;}
+    void add_cell(int x, int y, int cellIndex);
+    void del_cell(int cellIndex);
     void add_cell_demand_into_graph(int x, int y, int MCtype);
+    void del_cell_demand_from_graph(int x, int y, int MCtype);
     void add_net_demand_into_graph(int x, int y, int z, int netIndex);
     int row, column, layer;
     int maxCellMove;
+    SegmentTree* segmentTree;
     std::vector<std::vector<std::unordered_map<int,int>>> cellCount;
     std::vector<MasterCell> masterCells;
     std::vector<Cell> cellInstances;
