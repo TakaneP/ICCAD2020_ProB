@@ -48,11 +48,12 @@ void Parser::run(void) {
     cin >> type >> value;
     graph.masterCells.resize(value);
     for(int i = 0; i < value; ++i) {
-        cin >> type >> type >> pinNum >> blkNum;	
+        cin >> type >> type >> pinNum >> blkNum;
+	graph.masterCells[i].pins.resize(pinNum);
 	for(int j = 0;j < pinNum; j++) {
 	    cin >> type >> type >> type;
 	    int pinLayer = get_postfix_int(type, 1);
-	    graph.masterCells[i].pins.push_back(Pin(pinLayer));
+	    graph.masterCells[i].pins[j] = Pin(pinLayer);
 	}
 	for(int j = 0;j < blkNum; j++) {
 	    int demand, blkLayer;
@@ -86,15 +87,15 @@ void Parser::run(void) {
     }
     //Cell Instances
     cin >> type >> value;
+    graph.cellInstances.resize(value);
     for(int i = 0;i < value; ++i) {
 	int rowPos, colPos, MCtype;
 	cin >> type >> type >> type;
 	MCtype = get_postfix_int(type,2); //MC
 	cin >> rowPos >> colPos >> type;
-	graph.placement[--rowPos][--colPos].insert(i);
 	bool mov = (type[0] == 'M');
-        graph.cellInstances.push_back(Cell(MCtype, mov, rowPos, colPos));
-	graph.add_cell_demand_into_graph(rowPos, colPos, MCtype);
+        graph.cellInstances[i] = Cell(MCtype, mov, --rowPos, --colPos);
+	graph.add_cell(rowPos, colPos, i);
     }
     //Net
     cin >> type >> value;
@@ -132,8 +133,6 @@ void Parser::run(void) {
 	if(startRow > endRow) swap(startRow, endRow);
 	else if(startColumn > endColumn) swap(startColumn, endColumn);
 	else if(startLayer > endLayer) swap(startLayer, endLayer);
-	    
-	
 	graph.nets[netIndex].routingSegments.push_back({Point( startRow, startColumn, startLayer), 
 			Point(endRow, endColumn, endLayer)});
 	if(startRow != endRow) {
