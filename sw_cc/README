@@ -2,4 +2,4 @@ V1 merge
 I have run the test and ensured the demand after parsing is right.
 
 Todo: 
-      1. Add segment tree
+      1. Fix bugs of segment tree
