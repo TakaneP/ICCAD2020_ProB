@@ -112,3 +112,43 @@ void RoutingGraph::add_net_demand_into_graph(int x, int y, int z, int netIndex) 
         grids[x][y][z].passingNets.insert(hint, netIndex);
     }
 }
+
+void RoutingGraph::del_net_from_graph(int netIndex) {
+	auto& net = nets[netIndex];
+	while(net.routingSegments.size() > 0) {
+		auto segment = net.routingSegments.back();
+		del_seg_demand(segment, netIndex);
+		net.routingSegments.pop_back();
+	}
+}
+
+void RoutingGraph::del_seg_demand(std::pair<Point,Point> segment, int netIndex) {
+	int startRow = segment.first.x, startColumn = segment.first.y, startLayer = segment.first.z;
+	int endRow = segment.first.x, endColumn = segment.first.y, endLayer = segment.first.z;
+	// handle vertical segment
+	if(startRow != endRow) {
+		for(int j = startRow; j <= endRow; j++) {
+			del_seg_demand_from_graph(j, startColumn, startLayer, netIndex);
+		}
+	}
+	// handle horizontal segment
+	else if(startColumn != endColumn) {
+		for(int j = startColumn; j <= endColumn; j++) {
+			del_seg_demand_from_graph(startRow, j, startLayer, netIndex);
+		}
+	}
+	// handle via segment
+	else if(startLayer != endLayer) {
+	    for(int j = startLayer; j <= endLayer; j++) {
+			del_seg_demand_from_graph(startRow, startColumn, j, netIndex);
+		}
+	}
+}
+
+void RoutingGraph::del_seg_demand_from_graph(int x, int y, int z, int netIndex) {
+    auto hint = grids[x][y][z].passingNets.find(netIndex);
+    if(hint != grids[x][y][z].passingNets.end()) {
+        grids[x][y][z].demand--;
+        grids[x][y][z].passingNets.erase(hint);
+    }
+}

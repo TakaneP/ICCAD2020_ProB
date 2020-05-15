@@ -64,6 +64,9 @@ public:
     void add_cell_demand_into_graph(int x, int y, int MCtype);
     void del_cell_demand_from_graph(int x, int y, int MCtype);
     void add_net_demand_into_graph(int x, int y, int z, int netIndex);
+	void del_net_from_graph(int netIndex);
+	void del_seg_demand(std::pair<Point,Point> segment, int netIndex);
+    void del_seg_demand_from_graph(int x, int y, int z, int netIndex);
     int row, column, layer;
     int maxCellMove;
     SegmentTree* segmentTree;
