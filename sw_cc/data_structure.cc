@@ -12,36 +12,36 @@ void RoutingGraph::add_cell_demand_into_graph(int x, int y, int MCtype) {
     //Add sameGGrid rule
     for(auto it = sameGGrid[MCtype].begin(); it != sameGGrid[MCtype].end(); ++it) {
         int MCtype2 = it->first;
-	int originalPairCnt = min(cellCount[x][y][MCtype], cellCount[x][y][MCtype2]);
-	int afterPairCnt = min(cellCount[x][y][MCtype] + 1, cellCount[x][y][MCtype2]);
+    int originalPairCnt = min(cellCount[x][y][MCtype], cellCount[x][y][MCtype2]);
+    int afterPairCnt = min(cellCount[x][y][MCtype] + 1, cellCount[x][y][MCtype2]);
         for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
-	    grids[x][y][_it->first].demand += _it->second * (afterPairCnt - originalPairCnt);
-	}	
+        grids[x][y][_it->first].demand += _it->second * (afterPairCnt - originalPairCnt);
+    }	
     }
     //Add adjHGGrid rule
     for(auto it = adjHGGrid[MCtype].begin(); it != adjHGGrid[MCtype].end(); ++it) {
         int MCtype2 = it->first, preOriginalPairCnt = 0, preAfterPairCnt = 0, nxtOriginalPairCnt = 0, nxtAfterPairCnt = 0;
-	//Update left
-	if(y > 0) {
-	    preOriginalPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype]);
+    //Update left
+    if(y > 0) {
+        preOriginalPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype]);
             preAfterPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype] + 1);
-	    for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
+        for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
                 grids[x][y-1][_it->first].demand += _it->second * (preAfterPairCnt - preOriginalPairCnt);
             }
-	}
-	//Update right
-	if(y < (column - 1)) {
+    }
+    //Update right
+    if(y < (column - 1)) {
             nxtOriginalPairCnt = min(cellCount[x][y+1][MCtype2], cellCount[x][y][MCtype]);
             nxtAfterPairCnt = min(cellCount[x][y+1][MCtype2], cellCount[x][y][MCtype] + 1);
             for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
                 grids[x][y+1][_it->first].demand += _it->second * (nxtAfterPairCnt - nxtOriginalPairCnt);
             }
-	}
-	//Update current
+    }
+    //Update current
         for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
-	    if((preAfterPairCnt - preOriginalPairCnt + nxtAfterPairCnt - nxtOriginalPairCnt)>0) cout << x << y <<endl;
+        if((preAfterPairCnt - preOriginalPairCnt + nxtAfterPairCnt - nxtOriginalPairCnt)>0) cout << x << y <<endl;
             grids[x][y][_it->first].demand += _it->second * (preAfterPairCnt - preOriginalPairCnt + nxtAfterPairCnt - nxtOriginalPairCnt);
-	}
+    }
     }
     cellCount[x][y][MCtype]++;
 }
@@ -114,35 +114,35 @@ void RoutingGraph::add_net_demand_into_graph(int x, int y, int z, int netIndex) 
 }
 
 void RoutingGraph::del_net_from_graph(int netIndex) {
-	auto& net = nets[netIndex];
-	while(net.routingSegments.size() > 0) {
-		auto segment = net.routingSegments.back();
-		del_seg_demand(segment, netIndex);
-		net.routingSegments.pop_back();
-	}
+    auto& net = nets[netIndex];
+    while(net.routingSegments.size() > 0) {
+        auto segment = net.routingSegments.back();
+        del_seg_demand(segment, netIndex);
+        net.routingSegments.pop_back();
+    }
 }
 
 void RoutingGraph::del_seg_demand(std::pair<Point,Point> segment, int netIndex) {
-	int startRow = segment.first.x, startColumn = segment.first.y, startLayer = segment.first.z;
-	int endRow = segment.first.x, endColumn = segment.first.y, endLayer = segment.first.z;
-	// handle vertical segment
-	if(startRow != endRow) {
-		for(int j = startRow; j <= endRow; j++) {
-			del_seg_demand_from_graph(j, startColumn, startLayer, netIndex);
-		}
-	}
-	// handle horizontal segment
-	else if(startColumn != endColumn) {
-		for(int j = startColumn; j <= endColumn; j++) {
-			del_seg_demand_from_graph(startRow, j, startLayer, netIndex);
-		}
-	}
-	// handle via segment
-	else if(startLayer != endLayer) {
-	    for(int j = startLayer; j <= endLayer; j++) {
-			del_seg_demand_from_graph(startRow, startColumn, j, netIndex);
-		}
-	}
+    int startRow = segment.first.x, startColumn = segment.first.y, startLayer = segment.first.z;
+    int endRow = segment.first.x, endColumn = segment.first.y, endLayer = segment.first.z;
+    // handle vertical segment
+    if(startRow != endRow) {
+        for(int j = startRow; j <= endRow; j++) {
+            del_seg_demand_from_graph(j, startColumn, startLayer, netIndex);
+        }
+    }
+    // handle horizontal segment
+    else if(startColumn != endColumn) {
+        for(int j = startColumn; j <= endColumn; j++) {
+            del_seg_demand_from_graph(startRow, j, startLayer, netIndex);
+        }
+    }
+    // handle via segment
+    else if(startLayer != endLayer) {
+        for(int j = startLayer; j <= endLayer; j++) {
+            del_seg_demand_from_graph(startRow, startColumn, j, netIndex);
+        }
+    }
 }
 
 void RoutingGraph::del_seg_demand_from_graph(int x, int y, int z, int netIndex) {
