@@ -1,7 +1,7 @@
 #include<bits/stdc++.h>
 #include"parser.h"
 #include"data_structure.h"
-
+#include"segment_tree.h"
 using namespace std;
 
 int main(int argc, char* argv[])
