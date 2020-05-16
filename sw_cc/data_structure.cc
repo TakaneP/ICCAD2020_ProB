@@ -12,36 +12,35 @@ void RoutingGraph::add_cell_demand_into_graph(int x, int y, int MCtype) {
     //Add sameGGrid rule
     for(auto it = sameGGrid[MCtype].begin(); it != sameGGrid[MCtype].end(); ++it) {
         int MCtype2 = it->first;
-    int originalPairCnt = min(cellCount[x][y][MCtype], cellCount[x][y][MCtype2]);
-    int afterPairCnt = min(cellCount[x][y][MCtype] + 1, cellCount[x][y][MCtype2]);
+        int originalPairCnt = min(cellCount[x][y][MCtype], cellCount[x][y][MCtype2]);
+        int afterPairCnt = min(cellCount[x][y][MCtype] + 1, cellCount[x][y][MCtype2]);
         for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
-        grids[x][y][_it->first].demand += _it->second * (afterPairCnt - originalPairCnt);
-    }	
+            grids[x][y][_it->first].demand += _it->second * (afterPairCnt - originalPairCnt);
+        }	
     }
     //Add adjHGGrid rule
     for(auto it = adjHGGrid[MCtype].begin(); it != adjHGGrid[MCtype].end(); ++it) {
         int MCtype2 = it->first, preOriginalPairCnt = 0, preAfterPairCnt = 0, nxtOriginalPairCnt = 0, nxtAfterPairCnt = 0;
-    //Update left
-    if(y > 0) {
-        preOriginalPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype]);
+        //Update left
+        if(y > 0) {
+            preOriginalPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype]);
             preAfterPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype] + 1);
-        for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
+            for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
                 grids[x][y-1][_it->first].demand += _it->second * (preAfterPairCnt - preOriginalPairCnt);
             }
-    }
-    //Update right
-    if(y < (column - 1)) {
+        }
+        //Update right
+        if(y < (column - 1)) {
             nxtOriginalPairCnt = min(cellCount[x][y+1][MCtype2], cellCount[x][y][MCtype]);
             nxtAfterPairCnt = min(cellCount[x][y+1][MCtype2], cellCount[x][y][MCtype] + 1);
             for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
                 grids[x][y+1][_it->first].demand += _it->second * (nxtAfterPairCnt - nxtOriginalPairCnt);
             }
-    }
-    //Update current
+        }
+        //Update current
         for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
-        if((preAfterPairCnt - preOriginalPairCnt + nxtAfterPairCnt - nxtOriginalPairCnt)>0) cout << x << y <<endl;
             grids[x][y][_it->first].demand += _it->second * (preAfterPairCnt - preOriginalPairCnt + nxtAfterPairCnt - nxtOriginalPairCnt);
-    }
+        }
     }
     cellCount[x][y][MCtype]++;
 }
@@ -94,7 +93,7 @@ void RoutingGraph::add_cell(int x, int y, int cellIndex) {
     //Add demand into graph
     add_cell_demand_into_graph(x, y, cellInstances[cellIndex].masterCell);
 }
-//Note that this function will not affect any net demands and nets
+
 void RoutingGraph::del_cell(int cellIndex) {
     Cell& cell = cellInstances[cellIndex];
     int x = cell.x;
@@ -115,7 +114,6 @@ void RoutingGraph::add_net_demand_into_graph(int x, int y, int z, int netIndex) 
         grids[x][y][z].passingNets.insert(hint, netIndex);
     }
 }
-
 void RoutingGraph::del_net_from_graph(int netIndex) {
     auto& net = nets[netIndex];
     while(net.routingSegments.size() > 0) {
@@ -153,5 +151,61 @@ void RoutingGraph::del_seg_demand_from_graph(int x, int y, int z, int netIndex) 
     if(hint != grids[x][y][z].passingNets.end()) {
         grids[x][y][z].demand--;
         grids[x][y][z].passingNets.erase(hint);
+    }
+}
+//Trigger Build function
+void SegmentTree::build_ini(void) {
+    for(int i = 0; i < graph.layer; ++i) {
+        if(i & 1){ // vertical
+            for(int j = 0; j < graph.column; j++) {
+                build(1, 0, graph.row-1, i, j);
+            }
+        }
+        else { //horizontal
+            for(int j = 0; j < graph.row; j++) {
+                build(1, 0, graph.column - 1, i, j); 
+            }
+        }
+    }
+}
+//Recursive build segment tree
+void SegmentTree::build(int treeNodeIndex, int lowerBound, int upperBound, int layer, int rowOrColIndex) {
+    if(lowerBound == upperBound) {
+        if(layer & 1) 
+            node[layer][rowOrColIndex][treeNodeIndex].minValue = graph.grids[lowerBound][rowOrColIndex][layer].get_remaining();
+        else
+            node[layer][rowOrColIndex][treeNodeIndex].minValue = graph.grids[rowOrColIndex][lowerBound][layer].get_remaining();
+        return;
+    }
+    int mid = (lowerBound + upperBound) >> 1;
+    build(treeNodeIndex<<1, lowerBound, mid, layer, rowOrColIndex);
+    build(treeNodeIndex<<1|1, mid+1, upperBound, layer, rowOrColIndex);
+    pushup(treeNodeIndex, layer, rowOrColIndex);
+}
+//Minimum value in the interval
+void SegmentTree::pushup(int treeNodeIndex, int layer, int rowOrColIndex) {
+    node[layer][rowOrColIndex][treeNodeIndex].minValue = min(node[layer][rowOrColIndex][treeNodeIndex<<1].minValue, node[layer][rowOrColIndex][treeNodeIndex<<1|1].minValue);
+}
+//Trigger query function
+int SegmentTree::get_remaining_supply(int startIndex, int endIndex, int layer, int rowOrColIndex) {
+    if(layer & 1) 
+        return query(1, 0, graph.row-1, startIndex, endIndex, layer, rowOrColIndex);
+    else 
+        return query(1, 0, graph.column-1, startIndex, endIndex, layer, rowOrColIndex);
+}
+//Get the lowest node containing this segment
+int SegmentTree::query(int treeNodeIndex, int lowerBound, int upperBound, int startIndex, int endIndex, int layer, int rowOrColIndex) {
+    if(startIndex <= lowerBound && endIndex >= upperBound) {
+        return node[layer][rowOrColIndex][treeNodeIndex].minValue;
+    }
+    int mid = (lowerBound + upperBound) >> 1;
+    if(startIndex <= mid) {
+        return query(treeNodeIndex<<1, lowerBound, mid, startIndex, endIndex, layer, rowOrColIndex);
+    }
+    else if(endIndex > mid) {
+        return query(treeNodeIndex<<1|1, mid+1, upperBound, startIndex, endIndex, layer, rowOrColIndex);
+    }
+    else {
+        return min(query(treeNodeIndex<<1, lowerBound, mid, startIndex, endIndex, layer, rowOrColIndex), query(treeNodeIndex<<1|1, mid+1, upperBound, startIndex, endIndex, layer, rowOrColIndex));
     }
 }
