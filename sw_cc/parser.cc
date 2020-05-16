@@ -18,8 +18,8 @@ void Parser::run(void) {
     cin >> graph.column;
     double segmentTreeRowNodeNum_D = log2(graph.row);
     double segmentTreeColNodeNum_D = log2(graph.column);
-    segmentTreeRowNodeNum_D = ceil(segmentTreeRowNodeNum_D);
-    segmentTreeColNodeNum_D = ceil(segmentTreeColNodeNum_D);
+    segmentTreeRowNodeNum_D = pow(2,ceil(segmentTreeRowNodeNum_D)+1);
+    segmentTreeColNodeNum_D = pow(2,ceil(segmentTreeColNodeNum_D)+1);
     int segmentTreeRowNodeNum = (int) segmentTreeRowNodeNum_D;
     int segmentTreeColNodeNum = (int) segmentTreeColNodeNum_D;
     //Layer
@@ -29,14 +29,14 @@ void Parser::run(void) {
     for(int i = 0; i < graph.layer; i++) {
         cin >> type >> type >> type >> type >> layerLimit[i];
         if(i & 1) {
-            graph.segmentTree->node[i].resize(graph.row);
-            for(int j = 0; j < graph.row; j++) {
+            graph.segmentTree->node[i].resize(graph.column);
+            for(int j = 0; j < graph.column; j++) {
                 graph.segmentTree->node[i][j].resize(segmentTreeRowNodeNum);
             }
         }
 	    else {
-            graph.segmentTree->node[i].resize(graph.column);
-            for(int j = 0; j < graph.column; j++) {
+            graph.segmentTree->node[i].resize(graph.row);
+            for(int j = 0; j < graph.row; j++) {
                 graph.segmentTree->node[i][j].resize(segmentTreeColNodeNum);
             }
         }
