@@ -39,7 +39,6 @@ void RoutingGraph::add_cell_demand_into_graph(int x, int y, int MCtype) {
         }
         //Update current
         for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
-            if((preAfterPairCnt - preOriginalPairCnt + nxtAfterPairCnt - nxtOriginalPairCnt)>0) cout << x << y <<endl;
             grids[x][y][_it->first].demand += _it->second * (preAfterPairCnt - preOriginalPairCnt + nxtAfterPairCnt - nxtOriginalPairCnt);
         }
     }
