@@ -1,5 +1,6 @@
 #include<bits/stdc++.h>
 #include<unordered_set>
+#include<iostream>
 
 #ifndef DATASTRUCTURE
 #define DATASTRUCTURE
@@ -29,6 +30,9 @@ struct MasterCell{
 struct Point{
     Point() {}
     Point(int i, int j, int k): x(i), y(j), z(k) {}
+    friend std::ostream& operator<<(std::ostream& os, const Point& dt){
+        std::cout <<"("<<dt.x<<","<<dt.y<<","<<dt.z<<")"<<std::endl;
+    }
     int x,y,z;
 };
 
