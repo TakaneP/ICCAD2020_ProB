@@ -1,4 +1,6 @@
 #include<bits/stdc++.h>
+#include<unordered_set>
+#include<iostream>
 
 #ifndef DATASTRUCTURE
 #define DATASTRUCTURE
@@ -36,6 +38,9 @@ struct MasterCell{
 struct Point{
     Point() {}
     Point(int i, int j, int k): x(i), y(j), z(k) {}
+    friend std::ostream& operator<<(std::ostream& os, const Point& dt){
+        std::cout <<"("<<dt.x<<","<<dt.y<<","<<dt.z<<")"<<std::endl;
+    }
     int x,y,z;
 };
 
@@ -72,6 +77,9 @@ public:
     void add_cell_demand_into_graph(int x, int y, int MCtype);
     void del_cell_demand_from_graph(int x, int y, int MCtype);
     void add_net_demand_into_graph(int x, int y, int z, int netIndex);
+    void del_net_from_graph(int netIndex);
+    void del_seg_demand(std::pair<Point,Point> segment, int netIndex);
+    void del_seg_demand_from_graph(int x, int y, int z, int netIndex);
     int row, column, layer;
     int maxCellMove;
     SegmentTree* segmentTree;
