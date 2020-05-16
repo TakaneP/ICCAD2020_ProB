@@ -1,28 +1,9 @@
 #include<bits/stdc++.h>
-#include<unordered_set>
-#include<iostream>
 
 #ifndef DATASTRUCTURE
 #define DATASTRUCTURE
 
-class RoutingGraph;
-
-struct SegmentTreeNode{
-    int minValue;
-};
-
-class SegmentTree{
-public:
-    SegmentTree() = delete;
-    SegmentTree(RoutingGraph& main): graph(main) {}
-    RoutingGraph& graph;
-    std::vector<std::vector<std::vector<SegmentTreeNode>>> node; //layer, n = |row| or |column|, 2*2^ceil(logn)
-    void build_ini(void);
-    void build(int treeNodeIndex, int lowerBound, int upperBound, int layer, int rowOrColIndex);
-    void pushup(int treeNodeIndex, int layer, int rowOrColIndex);
-    int get_remaining_supply(int startIndex, int endIndex, int layer, int rowOrColIndex);
-    int query(int treeNodeIndex, int lowerBound, int upperBound, int startIndex, int endIndex, int layer, int rowOrColIndex);
-};
+class SegmentTree;
 
 struct Pin{
     Pin() {}
@@ -70,8 +51,8 @@ struct Gcell{
 
 class RoutingGraph{
 public:
-    RoutingGraph() {segmentTree = new SegmentTree(*this);}
-    ~RoutingGraph() {delete segmentTree;}
+    RoutingGraph();
+    ~RoutingGraph();
     void add_cell(int x, int y, int cellIndex);
     void del_cell(int cellIndex);
     void add_cell_demand_into_graph(int x, int y, int MCtype);
