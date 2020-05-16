@@ -103,6 +103,9 @@ void RoutingGraph::del_cell(int cellIndex) {
     placement[x][y].erase(cellIndex);
     //Del demand from graph
     del_cell_demand_from_graph(x, y, cellInstances[cellIndex].masterCell);
+    for(auto net_index : cellInstances[cellIndex].connectedNets) {
+        del_net_from_graph(net_index);
+    }
 }
 
 void RoutingGraph::add_net_demand_into_graph(int x, int y, int z, int netIndex) {
@@ -124,7 +127,7 @@ void RoutingGraph::del_net_from_graph(int netIndex) {
 
 void RoutingGraph::del_seg_demand(std::pair<Point,Point> segment, int netIndex) {
     int startRow = segment.first.x, startColumn = segment.first.y, startLayer = segment.first.z;
-    int endRow = segment.first.x, endColumn = segment.first.y, endLayer = segment.first.z;
+    int endRow = segment.second.x, endColumn = segment.second.y, endLayer = segment.second.z;
     // handle vertical segment
     if(startRow != endRow) {
         for(int j = startRow; j <= endRow; j++) {
