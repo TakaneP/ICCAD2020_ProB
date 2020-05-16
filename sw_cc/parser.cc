@@ -1,6 +1,7 @@
 #include<bits/stdc++.h>
 #include "./parser.h"
 #include "data_structure.h"
+#include "segment_tree.h"
 using namespace std;
 
 int get_postfix_int(string& s, int start) {
