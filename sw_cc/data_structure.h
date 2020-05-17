@@ -21,7 +21,8 @@ struct Point{
     Point() {}
     Point(int i, int j, int k): x(i), y(j), z(k) {}
     friend std::ostream& operator<<(std::ostream& os, const Point& dt){
-        std::cout <<"("<<dt.x<<","<<dt.y<<","<<dt.z<<")"<<std::endl;
+        os<<"("<<dt.x<<","<<dt.y<<","<<dt.z<<")";
+        return os;
     }
     bool operator==(const Point& p2){
         return (this->x==p2.x) && (this->y==p2.y) && (this->z==p2.z);
