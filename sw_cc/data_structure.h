@@ -30,10 +30,16 @@ struct Point{
     int x,y,z;
 };
 
+struct TwoPinNet{
+    Point p1, p2;
+    std::vector<std::pair<Point,Point>> paths;
+};
+
 struct Net{
     int minRoutingLayer;
     std::vector<std::pair<int,int>> pins;
     std::vector<std::pair<Point,Point>> routingSegments;
+    void Convert_seg_to_2pin();
 };
 
 struct Cell{
@@ -75,7 +81,6 @@ public:
     std::vector<std::vector<std::vector<Gcell>>> grids;
     std::vector<std::vector<std::unordered_set<int>>> placement;
     std::vector<Net> nets;
-    std::vector<std::vector<std::pair<Point,Point>>> routingSegments;
     std::unordered_map<int, std::unordered_map<int, std::unordered_map<int, int>>> sameGGrid;
     std::unordered_map<int, std::unordered_map<int, std::unordered_map<int, int>>> adjHGGrid;
 };
