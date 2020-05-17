@@ -1,4 +1,5 @@
 #include<bits/stdc++.h>
+#include<unordered_set>
 
 #ifndef DATASTRUCTURE
 #define DATASTRUCTURE
@@ -20,15 +21,25 @@ struct Point{
     Point() {}
     Point(int i, int j, int k): x(i), y(j), z(k) {}
     friend std::ostream& operator<<(std::ostream& os, const Point& dt){
-        std::cout <<"("<<dt.x<<","<<dt.y<<","<<dt.z<<")"<<std::endl;
+        os<<"("<<dt.x<<","<<dt.y<<","<<dt.z<<")";
+        return os;
+    }
+    bool operator==(const Point& p2){
+        return (this->x==p2.x) && (this->y==p2.y) && (this->z==p2.z);
     }
     int x,y,z;
+};
+
+struct TwoPinNet{
+    Point p1, p2;
+    std::vector<std::pair<Point,Point>> paths;
 };
 
 struct Net{
     int minRoutingLayer;
     std::vector<std::pair<int,int>> pins;
     std::vector<std::pair<Point,Point>> routingSegments;
+    void Convert_seg_to_2pin();
 };
 
 struct Cell{
@@ -70,7 +81,6 @@ public:
     std::vector<std::vector<std::vector<Gcell>>> grids;
     std::vector<std::vector<std::unordered_set<int>>> placement;
     std::vector<Net> nets;
-    std::vector<std::vector<std::pair<Point,Point>>> routingSegments;
     std::unordered_map<int, std::unordered_map<int, std::unordered_map<int, int>>> sameGGrid;
     std::unordered_map<int, std::unordered_map<int, std::unordered_map<int, int>>> adjHGGrid;
 };

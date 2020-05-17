@@ -3,6 +3,10 @@
 #include "segment_tree.h"
 using namespace std;
 
+void Net::Convert_seg_to_2pin() {
+    std::map<Point,int> vertexs;
+}
+
 RoutingGraph::RoutingGraph() {segmentTree = new SegmentTree(*this);}
 
 RoutingGraph::~RoutingGraph() {delete segmentTree;}
