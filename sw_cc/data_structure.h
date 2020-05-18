@@ -47,7 +47,10 @@ struct Net{
     int minRoutingLayer;
     std::vector<std::pair<int,int>> pins;
     std::vector<std::pair<Point,Point>> routingSegments;
-    void Convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap);
+    void Convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap, 
+        std::vector<Cell>& cellInstances,
+        std::vector<MasterCell>& masterCells
+        );
     int ReturnNodeDegree(vector<vector<vector<bool>>>& passingMap, int _x, int _y, int _z);
 };
 

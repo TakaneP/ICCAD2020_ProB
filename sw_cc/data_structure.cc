@@ -3,7 +3,10 @@
 #include "segment_tree.h"
 using namespace std;
 
-void Net::Convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap) {
+void Net::Convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap, 
+        std::vector<Cell>& cellInstances, 
+        std::vector<MasterCell>& masterCells
+        ) {
     // add segment in passingMap
     for(const auto& segment : routingSegments) {
         if(segment.first.x != segment.second.x) {
@@ -25,8 +28,16 @@ void Net::Convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap) {
             for(int n=start; n<=end; n++) {
                 passingMap[segment.first.x][segment.first.y][n];
             }
-
         }
+    }
+    // construct pin set 
+    unordered_set <Point> pin_map;
+    for(const auto& pin:pins) {
+        int cell_idx = pin.first;
+        int pin_idx = pin.second;
+        auto& cell = cellInstances[cell_idx];
+        int layer = masterCells[cell.masterCell].pins[pin_idx].layer;
+        pin_map.emplace(cell.x,cell.y,layer);    
     }
     // construct 2pin net
     
