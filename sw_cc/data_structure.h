@@ -30,8 +30,16 @@ struct Point{
     int x,y,z;
 };
 
+struct Node{
+    Point p;
+    bool is_steiner;
+    bool operator==(const Node& p2){
+        return this->p == p2.p;
+    }
+};
+
 struct TwoPinNet{
-    Point p1, p2;
+    Node p1, p2;
     std::vector<std::pair<Point,Point>> paths;
 };
 
@@ -39,7 +47,8 @@ struct Net{
     int minRoutingLayer;
     std::vector<std::pair<int,int>> pins;
     std::vector<std::pair<Point,Point>> routingSegments;
-    void Convert_seg_to_2pin();
+    void Convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap);
+    int ReturnNodeDegree(vector<vector<vector<bool>>>& passingMap, int _x, int _y, int _z);
 };
 
 struct Cell{
@@ -72,6 +81,7 @@ public:
     void del_net_from_graph(int netIndex);
     void del_seg_demand(std::pair<Point,Point> segment, int netIndex);
     void del_seg_demand_from_graph(int x, int y, int z, int netIndex);
+    void construct_2pin_nets();
     int row, column, layer;
     int maxCellMove;
     SegmentTree* segmentTree;

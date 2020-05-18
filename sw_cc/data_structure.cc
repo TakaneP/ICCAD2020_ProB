@@ -3,8 +3,56 @@
 #include "segment_tree.h"
 using namespace std;
 
-void Net::Convert_seg_to_2pin() {
-    std::map<Point,int> vertexs;
+void Net::Convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap) {
+    // add segment in passingMap
+    for(const auto& segment : routingSegments) {
+        if(segment.first.x != segment.second.x) {
+            int start = min(segment.first.x, segment.second.x);
+            int end = max(segment.first.x, segment.second.x);
+            for(int n=start; n<=end; n++) {
+                passingMap[n][segment.first.y][segment.first.z];
+            }
+        }
+        else if(segment.first.y != segment.second.y) {
+            int start = min(segment.first.y, segment.second.y);
+            int end = max(segment.first.y, segment.second.y);
+            for(int n=start; n<=end; n++) {
+                passingMap[segment.first.x][n][segment.first.z];
+            }
+        } else if(segment.first.z != segment.second.z) {
+            int start = min(segment.first.z, segment.second.z);
+            int end = max(segment.first.z, segment.second.z);
+            for(int n=start; n<=end; n++) {
+                passingMap[segment.first.x][segment.first.y][n];
+            }
+
+        }
+    }
+    // construct 2pin net
+    
+}
+
+int Net::ReturnNodeDegree(vector<vector<vector<bool>>>& passingMap, int _x, int _y, int _z) {
+    int x_bound = passingMap.size();
+    int y_bound = passingMap[0].size();
+    int z_bound = passingMap[0][0].size();
+    int count = 0;
+    int dir[6] = {1,-1,1,-1,1,-1};
+    for(int n=0; n<6; n++) {
+        if(n==0 && _x+dir[n] < x_bound && passingMap[_x+dir[n]][_y][_z])
+            count++;
+        else if(n==1 && _x+dir[n] >= 0 && passingMap[_x+dir[n]][_y][_z])
+            count++;
+        else if(n==2 && _y+dir[n] < y_bound && passingMap[_x][_y+dir[n]][_z])
+            count++;
+        else if(n==3 && _y+dir[n] >= 0 && passingMap[_x][_y+dir[n]][_z])
+            count++;
+        else if(n==4 && _z+dir[n] < z_bound && passingMap[_x][_y][_z+dir[n]])
+            count++;
+        else if(n==5 && _z+dir[n] >= 0 && passingMap[_x][_y][_z+dir[n]])
+            count++;
+    }
+    return count;
 }
 
 RoutingGraph::RoutingGraph() {segmentTree = new SegmentTree(*this);}
@@ -160,4 +208,21 @@ void RoutingGraph::del_seg_demand_from_graph(int x, int y, int z, int netIndex) 
         grids[x][y][z].demand--;
         grids[x][y][z].passingNets.erase(hint);
     }
+}
+
+void RoutingGraph::construct_2pin_nets() {
+    // initial pass_map
+    vector<vector<vector<bool>>> passingMap;
+    passingMap.resize(row);
+    for(int r=0; r<row; r++) {
+        passingMap[r].resize(column);
+        for(int c=0; c<column; c++) {
+            passingMap[r][c].resize(layer,0);
+        }
+    }
+    // mark segment passing
+    for(const auto& net : nets) {
+        
+    }
+
 }
