@@ -52,9 +52,9 @@ void SegmentTree::pushdown(int treeNodeIndex, int layer, int rowOrColIndex) {
 //Trigger query function
 int SegmentTree::get_remaining_supply(int startIndex, int endIndex, int layer, int rowOrColIndex) {
     if(layer & 1)
-        return update(1, 0, graph.row-1, startIndex, endIndex, layer, rowOrColIndex);
+        return query(1, 0, graph.row-1, startIndex, endIndex, layer, rowOrColIndex);
     else
-        return update(1, 0, graph.column-1, startIndex, endIndex, layer, rowOrColIndex);
+        return query(1, 0, graph.column-1, startIndex, endIndex, layer, rowOrColIndex);
 }
 //Trigger update event
 void SegmentTree::update_remaining_supply(int startIndex, int endIndex, int layer, int rowOrColIndex, int delta) {
