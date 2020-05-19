@@ -3,7 +3,7 @@
 #include "segment_tree.h"
 using namespace std;
 
-void Net::Convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap, 
+void Net::convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap, 
         std::vector<Cell>& cellInstances, 
         std::vector<MasterCell>& masterCells
         ) {
@@ -43,7 +43,7 @@ void Net::Convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap,
     
 }
 
-int Net::ReturnNodeDegree(vector<vector<vector<bool>>>& passingMap, int _x, int _y, int _z) {
+int Net::returnNodeDegree(vector<vector<vector<bool>>>& passingMap, int _x, int _y, int _z) {
     int x_bound = passingMap.size();
     int y_bound = passingMap[0].size();
     int z_bound = passingMap[0][0].size();
