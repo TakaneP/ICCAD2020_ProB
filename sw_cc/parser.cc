@@ -14,7 +14,7 @@ void Parser::run(void) {
     int value;
     //Cell max move
     cin >> type >> graph.maxCellMove;
-    //Grid boundary
+    //Grid boundaries
     cin >> type >> value >> value >> graph.row;
     cin >> graph.column;
     double segmentTreeRowNodeNum_D = log2(graph.row);
