@@ -98,6 +98,8 @@ void RoutingGraph::del_cell_demand_from_graph(int x, int y, int MCtype) {
 void RoutingGraph::add_cell(int x, int y, int cellIndex) {
     //Add into placement
     placement[x][y].insert(cellIndex);
+    cellInstances[cellIndex].x = x;
+    cellInstances[cellIndex].y = y;
     //Add demand into graph
     add_cell_demand_into_graph(x, y, cellInstances[cellIndex].masterCell);
 }
