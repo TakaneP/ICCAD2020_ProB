@@ -1,5 +1,5 @@
 #include<bits/stdc++.h>
-#include "data_structure.h"
+//#include "data_structure.h"
 #include "segment_tree.h"
 
 using namespace std;
@@ -20,6 +20,7 @@ void SegmentTree::build_ini(void) {
 }
 //Recursive build segment tree
 void SegmentTree::build(int treeNodeIndex, int lowerBound, int upperBound, int layer, int rowOrColIndex) {
+    node[layer][rowOrColIndex][treeNodeIndex].lzTag = 0;
     if(lowerBound == upperBound) {
         if(layer & 1)
             node[layer][rowOrColIndex][treeNodeIndex].minValue = graph.grids[lowerBound][rowOrColIndex][layer].get_remaining();
@@ -36,6 +37,18 @@ void SegmentTree::build(int treeNodeIndex, int lowerBound, int upperBound, int l
 void SegmentTree::pushup(int treeNodeIndex, int layer, int rowOrColIndex) {
     node[layer][rowOrColIndex][treeNodeIndex].minValue = min(node[layer][rowOrColIndex][treeNodeIndex<<1].minValue, node[layer][rowOrColIndex][treeNodeIndex<<1|1].minValue);
 }
+//Pushdown lazytag
+void SegmentTree::pushdown(int treeNodeIndex, int layer, int rowOrColIndex) {
+    if (!node[layer][rowOrColIndex][treeNodeIndex].lzTag) {
+        return;
+    }
+    node[layer][rowOrColIndex][treeNodeIndex<<1].minValue += node[layer][rowOrColIndex][treeNodeIndex].lzTag;
+    node[layer][rowOrColIndex][treeNodeIndex<<1|1].minValue += node[layer][rowOrColIndex][treeNodeIndex].lzTag;
+
+    node[layer][rowOrColIndex][treeNodeIndex<<1].lzTag += node[layer][rowOrColIndex][treeNodeIndex].lzTag;
+    node[layer][rowOrColIndex][treeNodeIndex<<1|1].lzTag += node[layer][rowOrColIndex][treeNodeIndex].lzTag;
+    node[layer][rowOrColIndex][treeNodeIndex].lzTag = 0;
+}
 //Trigger query function
 int SegmentTree::get_remaining_supply(int startIndex, int endIndex, int layer, int rowOrColIndex) {
     if(layer & 1)
@@ -49,6 +62,7 @@ int SegmentTree::query(int treeNodeIndex, int lowerBound, int upperBound, int st
         return node[layer][rowOrColIndex][treeNodeIndex].minValue;
     }
     int mid = (lowerBound + upperBound) >> 1;
+    pushdown(layer, rowOrColIndex, treeNodeIndex);
     if(startIndex <= mid) {
         return query(treeNodeIndex<<1, lowerBound, mid, startIndex, endIndex, layer, rowOrColIndex);
     }
@@ -59,4 +73,19 @@ int SegmentTree::query(int treeNodeIndex, int lowerBound, int upperBound, int st
         return min(query(treeNodeIndex<<1, lowerBound, mid, startIndex, endIndex, layer, rowOrColIndex), query(treeNodeIndex<<1|1, mid+1, upperBound, startIndex, endIndex, layer, rowOrColIndex));
     }
 }
-
+void SegmentTree::update(int treeNodeIndex, int lowerBound, int upperBound, int startIndex, int endIndex, int layer, int rowOrColIndex, int delta) {
+    if(startIndex <= lowerBound && endIndex >= upperBound) {
+        node[layer][rowOrColIndex][treeNodeIndex].minValue += delta;
+        node[layer][rowOrColIndex][treeNodeIndex].lzTag += delta;
+        return;
+    }
+    int mid = (lowerBound + upperBound) >> 1;
+    pushdown(layer, rowOrColIndex, treeNodeIndex);
+    if(startIndex <= mid) {
+        update(treeNodeIndex<<1, lowerBound, mid, startIndex, endIndex, layer, rowOrColIndex, delta);
+    }
+    if(endIndex > mid) {
+        query(treeNodeIndex<<1|1, mid+1, upperBound, startIndex, endIndex, layer, rowOrColIndex, delta);
+    }
+    pushup(layer, rowOrColIndex, treeNodeIndex);
+}
