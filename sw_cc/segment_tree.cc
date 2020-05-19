@@ -1,5 +1,5 @@
 #include<bits/stdc++.h>
-//#include "data_structure.h"
+#include "data_structure.h"
 #include "segment_tree.h"
 
 using namespace std;
@@ -52,9 +52,16 @@ void SegmentTree::pushdown(int treeNodeIndex, int layer, int rowOrColIndex) {
 //Trigger query function
 int SegmentTree::get_remaining_supply(int startIndex, int endIndex, int layer, int rowOrColIndex) {
     if(layer & 1)
-        return query(1, 0, graph.row-1, startIndex, endIndex, layer, rowOrColIndex);
+        return update(1, 0, graph.row-1, startIndex, endIndex, layer, rowOrColIndex);
     else
-        return query(1, 0, graph.column-1, startIndex, endIndex, layer, rowOrColIndex);
+        return update(1, 0, graph.column-1, startIndex, endIndex, layer, rowOrColIndex);
+}
+//Trigger update event
+void SegmentTree::update_remaining_supply(int startIndex, int endIndex, int layer, int rowOrColIndex, int delta) {
+    if(layer & 1)
+        update(1, 0, graph.row-1, startIndex, endIndex, layer, rowOrColIndex, delta);
+    else
+        update(1, 0, graph.column-1, startIndex, endIndex, layer, rowOrColIndex, delta);
 }
 //Get the lowest node containing this segment
 int SegmentTree::query(int treeNodeIndex, int lowerBound, int upperBound, int startIndex, int endIndex, int layer, int rowOrColIndex) {
@@ -73,6 +80,7 @@ int SegmentTree::query(int treeNodeIndex, int lowerBound, int upperBound, int st
         return min(query(treeNodeIndex<<1, lowerBound, mid, startIndex, endIndex, layer, rowOrColIndex), query(treeNodeIndex<<1|1, mid+1, upperBound, startIndex, endIndex, layer, rowOrColIndex));
     }
 }
+//update segment tree
 void SegmentTree::update(int treeNodeIndex, int lowerBound, int upperBound, int startIndex, int endIndex, int layer, int rowOrColIndex, int delta) {
     if(startIndex <= lowerBound && endIndex >= upperBound) {
         node[layer][rowOrColIndex][treeNodeIndex].minValue += delta;
@@ -85,7 +93,7 @@ void SegmentTree::update(int treeNodeIndex, int lowerBound, int upperBound, int 
         update(treeNodeIndex<<1, lowerBound, mid, startIndex, endIndex, layer, rowOrColIndex, delta);
     }
     if(endIndex > mid) {
-        query(treeNodeIndex<<1|1, mid+1, upperBound, startIndex, endIndex, layer, rowOrColIndex, delta);
+        update(treeNodeIndex<<1|1, mid+1, upperBound, startIndex, endIndex, layer, rowOrColIndex, delta);
     }
     pushup(layer, rowOrColIndex, treeNodeIndex);
 }
