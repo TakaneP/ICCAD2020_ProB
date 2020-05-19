@@ -5,6 +5,7 @@
 #define DATASTRUCTURE
 
 class SegmentTree;
+struct Cell;
 
 struct Pin{
     Pin() {}
@@ -24,11 +25,19 @@ struct Point{
         os<<"("<<dt.x<<","<<dt.y<<","<<dt.z<<")";
         return os;
     }
-    bool operator==(const Point& p2){
+    bool operator==(const Point& p2) const{
         return (this->x==p2.x) && (this->y==p2.y) && (this->z==p2.z);
     }
     int x,y,z;
 };
+
+class MyHashFunction { 
+public: 
+    size_t operator()(const Point& p) const
+    { 
+        return (p.x+p.y*2000+p.z*2000*2000);
+    } 
+}; 
 
 struct Node{
     Point p;
@@ -47,14 +56,13 @@ struct Net{
     int minRoutingLayer;
     std::vector<std::pair<int,int>> pins;
     std::vector<std::pair<Point,Point>> routingSegments;
-    void convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap, 
+    void convert_seg_to_2pin(std::vector<std::vector<std::vector<int>>>& degreeMap, 
         std::vector<Cell>& cellInstances,
         std::vector<MasterCell>& masterCells
         );
-    void traverse_passing_map(vector<vector<vector<bool>>>& passingMap, 
-        unordered_set <Point>& pin_map, Point start
+    void traverse_passing_map(std::vector<std::vector<std::vector<int>>>& degreeMap, 
+        std::unordered_set <Point,MyHashFunction>& pin_map, Point start, Point from_dir
         );
-    int return_node_degree(vector<vector<vector<bool>>>& passingMap, Point p);
 };
 
 struct Cell{

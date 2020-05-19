@@ -3,35 +3,12 @@
 #include "segment_tree.h"
 using namespace std;
 
-void Net::convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap, 
+void Net::convert_seg_to_2pin(vector<vector<vector<int>>>& degreeMap, 
         std::vector<Cell>& cellInstances, 
         std::vector<MasterCell>& masterCells
         ) {
-    // add segment in passingMap
-    for(const auto& segment : routingSegments) {
-        if(segment.first.x != segment.second.x) {
-            int start = min(segment.first.x, segment.second.x);
-            int end = max(segment.first.x, segment.second.x);
-            for(int n=start; n<=end; n++) {
-                passingMap[n][segment.first.y][segment.first.z];
-            }
-        }
-        else if(segment.first.y != segment.second.y) {
-            int start = min(segment.first.y, segment.second.y);
-            int end = max(segment.first.y, segment.second.y);
-            for(int n=start; n<=end; n++) {
-                passingMap[segment.first.x][n][segment.first.z];
-            }
-        } else if(segment.first.z != segment.second.z) {
-            int start = min(segment.first.z, segment.second.z);
-            int end = max(segment.first.z, segment.second.z);
-            for(int n=start; n<=end; n++) {
-                passingMap[segment.first.x][segment.first.y][n];
-            }
-        }
-    }
     // construct pin set 
-    unordered_set <Point> pin_map;
+    unordered_set <Point,MyHashFunction> pin_map;
     for(const auto& pin:pins) {
         int cell_idx = pin.first;
         int pin_idx = pin.second;
@@ -39,37 +16,60 @@ void Net::convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap,
         int layer = masterCells[cell.masterCell].pins[pin_idx].layer;
         pin_map.emplace(cell.x,cell.y,layer);    
     }
+    cout << "pins:\n";
+    for(auto pin:pin_map)
+        cout << pin << endl;
+    // add segment in passingMap
+    for(const auto& segment : routingSegments) {
+        if(segment.first.x != segment.second.x) {
+            int start = min(segment.first.x, segment.second.x);
+            int end = max(segment.first.x, segment.second.x);
+            for(int n=start; n<=end; n++) {
+                if(n == start || n == end)
+                    degreeMap[n][segment.first.y][segment.first.z]++;
+                else
+                    degreeMap[n][segment.first.y][segment.first.z]+=2;      
+                if(degreeMap[n][segment.first.y][segment.first.z] >= 3) 
+                    pin_map.emplace(n,segment.first.y,segment.first.x);
+            }       
+        }
+        else if(segment.first.y != segment.second.y) {
+            int start = min(segment.first.y, segment.second.y);
+            int end = max(segment.first.y, segment.second.y);
+            for(int n=start; n<=end; n++) {
+                if(n == start || n == end)
+                    degreeMap[segment.first.x][n][segment.first.z]++;
+                else
+                    degreeMap[segment.first.x][n][segment.first.z]+=2;
+                if(degreeMap[segment.first.x][n][segment.first.z] >= 3)
+                    pin_map.emplace(segment.first.x,n,segment.first.z);
+            }
+        } else if(segment.first.z != segment.second.z) {
+            int start = min(segment.first.z, segment.second.z);
+            int end = max(segment.first.z, segment.second.z);
+            for(int n=start; n<=end; n++) {
+                if(n == start || n == end)
+                    degreeMap[segment.first.x][segment.first.y][n]++;
+                else 
+                    degreeMap[segment.first.x][segment.first.y][n]+=2;
+                if(degreeMap[segment.first.x][segment.first.y][n] >= 3) 
+                    pin_map.emplace(segment.first.x,segment.first.y,n);
+            }
+        }
+    }
+    cout << "after pins:\n";
+    for(auto pin:pin_map)
+        cout << pin << endl;
     // construct 2pin net
     Point start = *pin_map.begin();
+    traverse_passing_map(degreeMap, pin_map, start, Point(0,0,0));
 }
 
-void Net::traverse_passing_map(vector<vector<vector<bool>>>& passingMap, 
-        unordered_set <Point>& pin_map, Point start
+void Net::traverse_passing_map(vector<vector<vector<int>>>& degreeMap, 
+        unordered_set <Point,MyHashFunction>& pin_map, Point start, Point from_dir
         ) {
-    
-}
-
-int Net::return_node_degree(vector<vector<vector<bool>>>& passingMap, Point p) {
-    int x_bound = passingMap.size();
-    int y_bound = passingMap[0].size();
-    int z_bound = passingMap[0][0].size();
-    int count = 0;
-    int dir[6] = {1,-1,1,-1,1,-1};
-    for(int n=0; n<6; n++) {
-        if(n==0 && p.x+dir[n] < x_bound && passingMap[p.x+dir[n]][p.y][p.z])
-            count++;
-        else if(n==1 && p.x+dir[n] >= 0 && passingMap[p.x+dir[n]][p.y][p.z])
-            count++;
-        else if(n==2 && p.y+dir[n] < y_bound && passingMap[p.x][p.y+dir[n]][p.z])
-            count++;
-        else if(n==3 && p.y+dir[n] >= 0 && passingMap[p.x][p.y+dir[n]][p.z])
-            count++;
-        else if(n==4 && p.z+dir[n] < z_bound && passingMap[p.x][p.y][p.z+dir[n]])
-            count++;
-        else if(n==5 && p.z+dir[n] >= 0 && passingMap[p.x][p.y][p.z+dir[n]])
-            count++;
-    }
-    return count;
+    int degree = degreeMap[start.x][start.y][start.z];
+    bool is_pin = (pin_map.find(start) != pin_map.end());
 }
 
 RoutingGraph::RoutingGraph() {segmentTree = new SegmentTree(*this);}
@@ -229,17 +229,18 @@ void RoutingGraph::del_seg_demand_from_graph(int x, int y, int z, int netIndex) 
 
 void RoutingGraph::construct_2pin_nets() {
     // initial pass_map
-    vector<vector<vector<bool>>> passingMap;
-    passingMap.resize(row);
+    vector<vector<vector<int>>> degreeMap;
+    degreeMap.resize(row);
     for(int r=0; r<row; r++) {
-        passingMap[r].resize(column);
+        degreeMap[r].resize(column);
         for(int c=0; c<column; c++) {
-            passingMap[r][c].resize(layer,0);
+            degreeMap[r][c].resize(layer,0);
         }
     }
     // mark segment passing
-    for(const auto& net : nets) {
-        
+    for(auto& net : nets) {
+        cout << "\nNew net:\n";
+        net.convert_seg_to_2pin(degreeMap, cellInstances, masterCells);
     }
 
 }
