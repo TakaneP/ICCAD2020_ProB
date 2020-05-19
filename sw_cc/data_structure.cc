@@ -40,10 +40,16 @@ void Net::convert_seg_to_2pin(vector<vector<vector<bool>>>& passingMap,
         pin_map.emplace(cell.x,cell.y,layer);    
     }
     // construct 2pin net
+    Point start = *pin_map.begin();
+}
+
+void Net::traverse_passing_map(vector<vector<vector<bool>>>& passingMap, 
+        unordered_set <Point>& pin_map, Point start
+        ) {
     
 }
 
-int Net::returnNodeDegree(vector<vector<vector<bool>>>& passingMap, int _x, int _y, int _z) {
+int Net::return_node_degree(vector<vector<vector<bool>>>& passingMap, int _x, int _y, int _z) {
     int x_bound = passingMap.size();
     int y_bound = passingMap[0].size();
     int z_bound = passingMap[0][0].size();
