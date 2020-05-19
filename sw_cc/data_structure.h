@@ -54,7 +54,7 @@ struct Net{
     void traverse_passing_map(vector<vector<vector<bool>>>& passingMap, 
         unordered_set <Point>& pin_map, Point start
         );
-    int returnNodeDegree(vector<vector<vector<bool>>>& passingMap, int _x, int _y, int _z);
+    int return_node_degree(vector<vector<vector<bool>>>& passingMap, Point p);
 };
 
 struct Cell{

@@ -49,24 +49,24 @@ void Net::traverse_passing_map(vector<vector<vector<bool>>>& passingMap,
     
 }
 
-int Net::return_node_degree(vector<vector<vector<bool>>>& passingMap, int _x, int _y, int _z) {
+int Net::return_node_degree(vector<vector<vector<bool>>>& passingMap, Point p) {
     int x_bound = passingMap.size();
     int y_bound = passingMap[0].size();
     int z_bound = passingMap[0][0].size();
     int count = 0;
     int dir[6] = {1,-1,1,-1,1,-1};
     for(int n=0; n<6; n++) {
-        if(n==0 && _x+dir[n] < x_bound && passingMap[_x+dir[n]][_y][_z])
+        if(n==0 && p.x+dir[n] < x_bound && passingMap[p.x+dir[n]][p.y][p.z])
             count++;
-        else if(n==1 && _x+dir[n] >= 0 && passingMap[_x+dir[n]][_y][_z])
+        else if(n==1 && p.x+dir[n] >= 0 && passingMap[p.x+dir[n]][p.y][p.z])
             count++;
-        else if(n==2 && _y+dir[n] < y_bound && passingMap[_x][_y+dir[n]][_z])
+        else if(n==2 && p.y+dir[n] < y_bound && passingMap[p.x][p.y+dir[n]][p.z])
             count++;
-        else if(n==3 && _y+dir[n] >= 0 && passingMap[_x][_y+dir[n]][_z])
+        else if(n==3 && p.y+dir[n] >= 0 && passingMap[p.x][p.y+dir[n]][p.z])
             count++;
-        else if(n==4 && _z+dir[n] < z_bound && passingMap[_x][_y][_z+dir[n]])
+        else if(n==4 && p.z+dir[n] < z_bound && passingMap[p.x][p.y][p.z+dir[n]])
             count++;
-        else if(n==5 && _z+dir[n] >= 0 && passingMap[_x][_y][_z+dir[n]])
+        else if(n==5 && p.z+dir[n] >= 0 && passingMap[p.x][p.y][p.z+dir[n]])
             count++;
     }
     return count;
