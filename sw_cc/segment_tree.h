@@ -6,6 +6,7 @@
 class RoutingGraph;
 
 struct SegmentTreeNode{
+    int lzTag;
     int minValue;
 };
 
@@ -18,8 +19,12 @@ public:
     void build_ini(void);
     void build(int treeNodeIndex, int lowerBound, int upperBound, int layer, int rowOrColIndex);
     void pushup(int treeNodeIndex, int layer, int rowOrColIndex);
+    void pushdown(int treeNodeIndex, int layer, int rowOrColIndex);
     int get_remaining_supply(int startIndex, int endIndex, int layer, int rowOrColIndex);
+    void update_remaining_supply(int startIndex, int endIndex, int layer, int rowOrColIndex, int delta);
     int query(int treeNodeIndex, int lowerBound, int upperBound, int startIndex, int endIndex, int layer, int rowOrColIndex);
+    void update(int treeNodeIndex, int lowerBound, int upperBound, int startIndex, int endIndex, int layer, int rowOrColIndex, int delta);
+
 };
 
 
