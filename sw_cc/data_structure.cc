@@ -81,29 +81,75 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
 void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, 
         unordered_set <Point,MyHashFunction>& pin_map, Point start_p
         ) {
+    cout << "\nnew traverse\n";
     bool is_pin = (pin_map.find(start_p) != pin_map.end());
+    while(true) {     
+        Point dir = return_next_dir(degreeMap, start_p);
+        //if (start_p == Point(1,1,0)) {
+            cout << "start point: " << start_p << endl;
+            cout << "dir " << dir << endl;
+        //}
+        if(dir == Point(-1,-1,-1))
+            break;
+        // -dir because delete outgoing edge
+        decrese_degree_endpoint(degreeMap, start_p, Point(-dir.x, -dir.y, -dir.z));
+        Point now_p = start_p;
+        TwoPinNet segment;
+        segment.n1.p = start_p;
+        std::pair<Point,Point> path;
+        path.first = start_p;
+        while(true) {
+            now_p = now_p+dir;
+            bool is_pin = pin_map.find(now_p) != pin_map.end();
+            cout << "point: " << now_p << endl;
+            if(is_pin) {
+                // create 2pin
+                decrese_degree_endpoint(degreeMap, now_p, dir);
+                path.second = now_p;
+                segment.paths.push_back(path);
+                cout << "pin path: " << path.first << " " << path.second << endl;
+                segment.n2.p = now_p;
+                this->routingTree.push_back(segment);              
+                traverse_passing_map(degreeMap, pin_map, now_p);
+                break;
+            }
+            else {
+                // keep propogate
+                Point next_p = now_p + dir;            
+                if(check_map_legal(degreeMap, next_p) && 
+                degreeMap[next_p.x][next_p.y][next_p.z].return_degree()) {
+                    decrese_degree_middle_p(degreeMap, now_p, dir);
+                }
+                else {
+                    // create segment path
+                    cout << "else\n";
+                    decrese_degree_endpoint(degreeMap, now_p, dir);
+                    path.second = now_p;
+                    segment.paths.push_back(path);
+                    cout << "path: " << path.first << " " << path.second << endl;
+                    path.first = now_p;
+                    dir = return_next_dir(degreeMap, now_p);
+                }
+            }
+        }
+    }
 }
 
 Point Net::return_next_dir(vector<vector<vector<DegreeNode>>>& degreeMap, Point now_p) {
-    int x_bound = degreeMap.size();
-    int y_bound = degreeMap[0].size();
-    int z_bound = degreeMap[0][0].size();
-    int dir[6] = {1,-1,1,-1,1,-1};
-    for(int n=0; n<6; n++) {
-        if(n==0 && now_p.x+dir[n] < x_bound && degreeMap[now_p.x+dir[n]][now_p.y][now_p.z].right)
-            return Point(dir[n],0,0);
-        else if(n==1 && now_p.x+dir[n] >= 0 && degreeMap[now_p.x+dir[n]][now_p.y][now_p.z].left)
-            return Point(dir[n],0,0);
-        else if(n==2 && now_p.y+dir[n] < y_bound && degreeMap[now_p.x][now_p.y+dir[n]][now_p.z].up)
-            return Point(0,dir[n],0);
-        else if(n==3 && now_p.y+dir[n] >= 0 && degreeMap[now_p.x][now_p.y+dir[n]][now_p.z].down)
-            return Point(0,dir[n],0);
-        else if(n==4 && now_p.z+dir[n] < z_bound && degreeMap[now_p.x][now_p.y][now_p.z+dir[n]].top)
-            return Point(0,0,dir[n]);
-        else if(n==5 && now_p.z+dir[n] >= 0 && degreeMap[now_p.x][now_p.y][now_p.z+dir[n]].bottom)
-            return Point(0,0,dir[n]);
-    }
-    return Point(-1,-1,-1);
+    if(degreeMap[now_p.x][now_p.y][now_p.z].right)
+        return Point(1,0,0);
+    else if(degreeMap[now_p.x][now_p.y][now_p.z].left)
+        return Point(-1,0,0);
+    else if(degreeMap[now_p.x][now_p.y][now_p.z].up)
+        return Point(0,1,0);
+    else if(degreeMap[now_p.x][now_p.y][now_p.z].down)
+        return Point(0,-1,0);
+    else if(degreeMap[now_p.x][now_p.y][now_p.z].top)
+        return Point(0,0,1);
+    else if(degreeMap[now_p.x][now_p.y][now_p.z].bottom)
+        return Point(0,0,-1);
+    else
+        return Point(-1,-1,-1);
 }
 
 bool Net::check_map_legal(vector<vector<vector<DegreeNode>>>& degreeMap, Point now_p) {
@@ -113,6 +159,38 @@ bool Net::check_map_legal(vector<vector<vector<DegreeNode>>>& degreeMap, Point n
     return (now_p.x<x_bound && now_p.x>=0 && 
             now_p.y<y_bound && now_p.y>=0 && 
             now_p.z<z_bound && now_p.z>=0);
+}
+
+void Net::decrese_degree_endpoint(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
+        Point now_p, Point dir) {
+    if(dir.x==1)
+        degreeMap[now_p.x][now_p.y][now_p.z].left = 0;
+    if(dir.x==-1)
+        degreeMap[now_p.x][now_p.y][now_p.z].right = 0;
+    if(dir.y==1)
+        degreeMap[now_p.x][now_p.y][now_p.z].down = 0;
+    if(dir.y==-1)
+        degreeMap[now_p.x][now_p.y][now_p.z].up = 0;
+    if(dir.z==1)
+        degreeMap[now_p.x][now_p.y][now_p.z].bottom = 0;
+    if(dir.z==-1)
+        degreeMap[now_p.x][now_p.y][now_p.z].top = 0;
+}
+
+void Net::decrese_degree_middle_p(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
+        Point now_p, Point dir) {
+    if(dir.x!=0) {
+        degreeMap[now_p.x][now_p.y][now_p.z].left = 0;
+        degreeMap[now_p.x][now_p.y][now_p.z].right = 0;
+    }
+    if(dir.y!=0) {
+        degreeMap[now_p.x][now_p.y][now_p.z].up = 0;
+        degreeMap[now_p.x][now_p.y][now_p.z].down = 0;
+    }
+    if(dir.z!=0) {
+        degreeMap[now_p.x][now_p.y][now_p.z].top = 0;
+        degreeMap[now_p.x][now_p.y][now_p.z].bottom = 0;
+    }
 }
 
 RoutingGraph::RoutingGraph() {segmentTree = new SegmentTree(*this);}

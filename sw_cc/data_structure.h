@@ -60,7 +60,7 @@ struct DegreeNode{
     DegreeNode() {up=0, down=0, left=0, right=0, top=0, bottom=0;}
     bool up, down, left, right, top, bottom;
     int return_degree(){
-        return up+down+left+right+top+bottom;
+        return (int)up+down+left+right+top+bottom;
     }
 };
 
@@ -77,6 +77,10 @@ struct Net{
         std::unordered_set <Point,MyHashFunction>& pin_map, Point start_p);
     Point return_next_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
     bool check_map_legal(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
+    void decrese_degree_endpoint(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
+        Point now_p, Point dir);
+    void decrese_degree_middle_p(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
+        Point now_p, Point dir);
 };
 
 struct Cell{
