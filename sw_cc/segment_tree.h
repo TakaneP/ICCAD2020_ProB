@@ -6,6 +6,7 @@
 class RoutingGraph;
 
 struct SegmentTreeNode{
+    SegmentTreeNode(): lzTag(0) {}
     int lzTag;
     int minValue;
 };

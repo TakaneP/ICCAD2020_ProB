@@ -9,14 +9,15 @@ int get_postfix_int(string& s, int start) {
 }
 
 void Parser::run(void) {
-    auto f = freopen(file.c_str(), "r", stdin);
+    ifstream fin;
+	fin.open(file);
     string type;
     int value;
     //Cell max move
-    cin >> type >> graph.maxCellMove;
+    fin >> type >> graph.maxCellMove;
     //Grid boundaries
-    cin >> type >> value >> value >> graph.row;
-    cin >> graph.column;
+    fin >> type >> value >> value >> graph.row;
+    fin >> graph.column;
     double segmentTreeRowNodeNum_D = log2(graph.row);
     double segmentTreeColNodeNum_D = log2(graph.column);
     segmentTreeRowNodeNum_D = pow(2,ceil(segmentTreeRowNodeNum_D)+1);
@@ -24,11 +25,11 @@ void Parser::run(void) {
     int segmentTreeRowNodeNum = (int) segmentTreeRowNodeNum_D;
     int segmentTreeColNodeNum = (int) segmentTreeColNodeNum_D;
     //Layer
-    cin >> type >> graph.layer;
+    fin >> type >> graph.layer;
     vector<int> layerLimit(graph.layer);
     graph.segmentTree->node.resize(graph.layer);
     for(int i = 0; i < graph.layer; i++) {
-        cin >> type >> type >> type >> type >> layerLimit[i];
+        fin >> type >> type >> type >> type >> layerLimit[i];
         if(i & 1) {
             graph.segmentTree->node[i].resize(graph.column);
             for(int j = 0; j < graph.column; j++) {
@@ -57,45 +58,45 @@ void Parser::run(void) {
         }
     }
     //Non default supply
-    cin >> type >> value;
+    fin >> type >> value;
     for(int i = 0; i < value; ++i) {
         int x,y,z,offset;
-	    cin >> x >> y >> z >> offset;
+	    fin >> x >> y >> z >> offset;
 	    graph.grids[x-1][y-1][z-1].capacity += offset;
     }
     //Master Cell
     int pinNum, blkNum;
-    cin >> type >> value;
+    fin >> type >> value;
     graph.masterCells.resize(value);
     for(int i = 0; i < value; ++i) {
-        cin >> type >> type >> pinNum >> blkNum;
+        fin >> type >> type >> pinNum >> blkNum;
         graph.masterCells[i].pins.resize(pinNum);
         for(int j = 0;j < pinNum; j++) {
-            cin >> type >> type >> type;
+            fin >> type >> type >> type;
             int pinLayer = get_postfix_int(type, 1);
             graph.masterCells[i].pins[j] = Pin(pinLayer);
         }
         for(int j = 0;j < blkNum; j++) {
             int demand, blkLayer;
-            cin >> type >> type >> type >> demand;
+            fin >> type >> type >> type >> demand;
             blkLayer = get_postfix_int(type, 1);
             graph.masterCells[i].blockages[blkLayer] += demand;
         }
     }
     //Extra Demand
-    cin >> type >> value;
+    fin >> type >> value;
     for(int i = 0;i < value; ++i) {
         bool op;
         int MC1, MC2, layerIndex, extraDemand;
-        cin >> type;
+        fin >> type;
         op = (type[0] == 'a'); //same : 0, adj: 1
-        cin >> type;
+        fin >> type;
         MC1 = get_postfix_int(type, 2);
-        cin >> type;
+        fin >> type;
         MC2 = get_postfix_int(type, 2);
-        cin >> type;
+        fin >> type;
         layerIndex = get_postfix_int(type, 1);
-        cin >> extraDemand;
+        fin >> extraDemand;
         if(!op) {
             graph.sameGGrid[MC1][MC2][layerIndex] = extraDemand;
             graph.sameGGrid[MC2][MC1][layerIndex] = extraDemand;
@@ -106,26 +107,26 @@ void Parser::run(void) {
         }
     }
     //Cell Instances
-    cin >> type >> value;
+    fin >> type >> value;
     graph.cellInstances.resize(value);
     for(int i = 0;i < value; ++i) {
         int rowPos, colPos, MCtype;
-        cin >> type >> type >> type;
+        fin >> type >> type >> type;
         MCtype = get_postfix_int(type,2); //MC
-        cin >> rowPos >> colPos >> type;
+        fin >> rowPos >> colPos >> type;
         bool mov = (type[0] == 'M');
         graph.cellInstances[i] = Cell(MCtype, mov, --rowPos, --colPos);
         graph.add_cell(rowPos, colPos, i);
     }
     //Net
-    cin >> type >> value;
+    fin >> type >> value;
     graph.nets.resize(value);
     for(int i = 0; i < value; ++i) {
         int pinNum;
-        cin >> type >> type >> pinNum >> type;
+        fin >> type >> type >> pinNum >> type;
         graph.nets[i].minRoutingLayer = (type[0] == 'N')? 0:get_postfix_int(type,1);
         for(int j = 0; j < pinNum; j++) {
-            cin >> type >> type;
+            fin >> type >> type;
             size_t found = type.find("/");
             string cellIns = type.substr(0,found);
             string pinName = type.substr(found+1);
@@ -139,10 +140,10 @@ void Parser::run(void) {
         }
     }
     //Routing segments
-    cin >> type >> value;
+    fin >> type >> value;
     for(int i = 0;i < value; ++i) {
         int startRow, startColumn, startLayer, endRow, endColumn, endLayer;
-        cin >> startRow >> startColumn >> startLayer >> endRow >> endColumn >> endLayer >> type;
+        fin >> startRow >> startColumn >> startLayer >> endRow >> endColumn >> endLayer >> type;
         int netIndex = get_postfix_int(type,1);
         startRow--;
         startColumn--;
@@ -172,4 +173,5 @@ void Parser::run(void) {
         }
     }
     graph.segmentTree->build_ini();
+	fin.close();
 }
