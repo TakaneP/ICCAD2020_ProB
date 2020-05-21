@@ -3,7 +3,7 @@
 #include "segment_tree.h"
 using namespace std;
 
-void Net::convert_seg_to_2pin(vector<vector<vector<int>>>& degreeMap, 
+void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap, 
         std::vector<Cell>& cellInstances, 
         std::vector<MasterCell>& masterCells
         ) {
@@ -25,11 +25,15 @@ void Net::convert_seg_to_2pin(vector<vector<vector<int>>>& degreeMap,
             int start = min(segment.first.x, segment.second.x);
             int end = max(segment.first.x, segment.second.x);
             for(int n=start; n<=end; n++) {
-                if(n == start || n == end)
-                    degreeMap[n][segment.first.y][segment.first.z]++;
-                else
-                    degreeMap[n][segment.first.y][segment.first.z]+=2;      
-                if(degreeMap[n][segment.first.y][segment.first.z] >= 3) 
+                if(n == start)
+                    degreeMap[n][segment.first.y][segment.first.z].right = 1;
+                else if(n == end)
+                    degreeMap[n][segment.first.y][segment.first.z].left = 1;
+                else {
+                    degreeMap[n][segment.first.y][segment.first.z].right = 1;
+                    degreeMap[n][segment.first.y][segment.first.z].left = 1;
+                }
+                if(degreeMap[n][segment.first.y][segment.first.z].return_degree() >= 3) 
                     pin_map.emplace(n,segment.first.y,segment.first.x);
             }       
         }
@@ -37,22 +41,30 @@ void Net::convert_seg_to_2pin(vector<vector<vector<int>>>& degreeMap,
             int start = min(segment.first.y, segment.second.y);
             int end = max(segment.first.y, segment.second.y);
             for(int n=start; n<=end; n++) {
-                if(n == start || n == end)
-                    degreeMap[segment.first.x][n][segment.first.z]++;
-                else
-                    degreeMap[segment.first.x][n][segment.first.z]+=2;
-                if(degreeMap[segment.first.x][n][segment.first.z] >= 3)
+                if(n == start)
+                    degreeMap[segment.first.x][n][segment.first.z].up = 1;
+                else if(n == end)
+                    degreeMap[segment.first.x][n][segment.first.z].down = 1;
+                else {
+                    degreeMap[segment.first.x][n][segment.first.z].up = 1;
+                    degreeMap[segment.first.x][n][segment.first.z].down = 1;
+                }
+                if(degreeMap[segment.first.x][n][segment.first.z].return_degree() >= 3)
                     pin_map.emplace(segment.first.x,n,segment.first.z);
             }
         } else if(segment.first.z != segment.second.z) {
             int start = min(segment.first.z, segment.second.z);
             int end = max(segment.first.z, segment.second.z);
             for(int n=start; n<=end; n++) {
-                if(n == start || n == end)
-                    degreeMap[segment.first.x][segment.first.y][n]++;
-                else 
-                    degreeMap[segment.first.x][segment.first.y][n]+=2;
-                if(degreeMap[segment.first.x][segment.first.y][n] >= 3) 
+                if(n == start)
+                    degreeMap[segment.first.x][segment.first.y][n].top = 1;
+                else if(n == end)
+                    degreeMap[segment.first.x][segment.first.y][n].bottom = 1;
+                else {
+                    degreeMap[segment.first.x][segment.first.y][n].top = 1;
+                    degreeMap[segment.first.x][segment.first.y][n].bottom = 1;
+                }
+                if(degreeMap[segment.first.x][segment.first.y][n].return_degree() >= 3) 
                     pin_map.emplace(segment.first.x,segment.first.y,n);
             }
         }
@@ -62,14 +74,45 @@ void Net::convert_seg_to_2pin(vector<vector<vector<int>>>& degreeMap,
         cout << pin << endl;
     // construct 2pin net
     Point start = *pin_map.begin();
-    traverse_passing_map(degreeMap, pin_map, start, Point(0,0,0));
+    cout << "start: " << start << endl;
+    traverse_passing_map(degreeMap, pin_map, start);
 }
 
-void Net::traverse_passing_map(vector<vector<vector<int>>>& degreeMap, 
-        unordered_set <Point,MyHashFunction>& pin_map, Point start, Point from_dir
+void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, 
+        unordered_set <Point,MyHashFunction>& pin_map, Point start_p
         ) {
-    int degree = degreeMap[start.x][start.y][start.z];
-    bool is_pin = (pin_map.find(start) != pin_map.end());
+    bool is_pin = (pin_map.find(start_p) != pin_map.end());
+}
+
+Point Net::return_next_dir(vector<vector<vector<DegreeNode>>>& degreeMap, Point now_p) {
+    int x_bound = degreeMap.size();
+    int y_bound = degreeMap[0].size();
+    int z_bound = degreeMap[0][0].size();
+    int dir[6] = {1,-1,1,-1,1,-1};
+    for(int n=0; n<6; n++) {
+        if(n==0 && now_p.x+dir[n] < x_bound && degreeMap[now_p.x+dir[n]][now_p.y][now_p.z].right)
+            return Point(dir[n],0,0);
+        else if(n==1 && now_p.x+dir[n] >= 0 && degreeMap[now_p.x+dir[n]][now_p.y][now_p.z].left)
+            return Point(dir[n],0,0);
+        else if(n==2 && now_p.y+dir[n] < y_bound && degreeMap[now_p.x][now_p.y+dir[n]][now_p.z].up)
+            return Point(0,dir[n],0);
+        else if(n==3 && now_p.y+dir[n] >= 0 && degreeMap[now_p.x][now_p.y+dir[n]][now_p.z].down)
+            return Point(0,dir[n],0);
+        else if(n==4 && now_p.z+dir[n] < z_bound && degreeMap[now_p.x][now_p.y][now_p.z+dir[n]].top)
+            return Point(0,0,dir[n]);
+        else if(n==5 && now_p.z+dir[n] >= 0 && degreeMap[now_p.x][now_p.y][now_p.z+dir[n]].bottom)
+            return Point(0,0,dir[n]);
+    }
+    return Point(-1,-1,-1);
+}
+
+bool Net::check_map_legal(vector<vector<vector<DegreeNode>>>& degreeMap, Point now_p) {
+    int x_bound = degreeMap.size();
+    int y_bound = degreeMap[0].size();
+    int z_bound = degreeMap[0][0].size();
+    return (now_p.x<x_bound && now_p.x>=0 && 
+            now_p.y<y_bound && now_p.y>=0 && 
+            now_p.z<z_bound && now_p.z>=0);
 }
 
 RoutingGraph::RoutingGraph() {segmentTree = new SegmentTree(*this);}
@@ -229,12 +272,12 @@ void RoutingGraph::del_seg_demand_from_graph(int x, int y, int z, int netIndex) 
 
 void RoutingGraph::construct_2pin_nets() {
     // initial pass_map
-    vector<vector<vector<int>>> degreeMap;
+    vector<vector<vector<DegreeNode>>> degreeMap;
     degreeMap.resize(row);
     for(int r=0; r<row; r++) {
         degreeMap[r].resize(column);
         for(int c=0; c<column; c++) {
-            degreeMap[r][c].resize(layer,0);
+            degreeMap[r][c].resize(layer);
         }
     }
     // mark segment passing

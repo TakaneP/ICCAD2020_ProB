@@ -28,6 +28,9 @@ struct Point{
     bool operator==(const Point& p2) const{
         return (this->x==p2.x) && (this->y==p2.y) && (this->z==p2.z);
     }
+    Point operator+(const Point& p2) const{
+        return Point(this->x+p2.x, this->y+p2.y, this->z+p2.z);
+    }
     int x,y,z;
 };
 
@@ -48,21 +51,32 @@ struct Node{
 };
 
 struct TwoPinNet{
-    Node p1, p2;
+    Node n1, n2;
     std::vector<std::pair<Point,Point>> paths;
+};
+
+struct DegreeNode{
+    // up/down is y axis, left/right is x axis, top/bottom is z axis
+    DegreeNode() {up=0, down=0, left=0, right=0, top=0, bottom=0;}
+    bool up, down, left, right, top, bottom;
+    int return_degree(){
+        return up+down+left+right+top+bottom;
+    }
 };
 
 struct Net{
     int minRoutingLayer;
     std::vector<std::pair<int,int>> pins;
     std::vector<std::pair<Point,Point>> routingSegments;
-    void convert_seg_to_2pin(std::vector<std::vector<std::vector<int>>>& degreeMap, 
+    std::vector<TwoPinNet> routingTree;
+    void convert_seg_to_2pin(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
         std::vector<Cell>& cellInstances,
         std::vector<MasterCell>& masterCells
         );
-    void traverse_passing_map(std::vector<std::vector<std::vector<int>>>& degreeMap, 
-        std::unordered_set <Point,MyHashFunction>& pin_map, Point start, Point from_dir
-        );
+    void traverse_passing_map(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
+        std::unordered_set <Point,MyHashFunction>& pin_map, Point start_p);
+    Point return_next_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
+    bool check_map_legal(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
 };
 
 struct Cell{
