@@ -69,7 +69,7 @@ int SegmentTree::query(int treeNodeIndex, int lowerBound, int upperBound, int st
         return node[layer][rowOrColIndex][treeNodeIndex].minValue;
     }
     int mid = (lowerBound + upperBound) >> 1;
-    pushdown(layer, rowOrColIndex, treeNodeIndex);
+    pushdown(treeNodeIndex, layer, rowOrColIndex);
     if(startIndex <= mid) {
         return query(treeNodeIndex<<1, lowerBound, mid, startIndex, endIndex, layer, rowOrColIndex);
     }
