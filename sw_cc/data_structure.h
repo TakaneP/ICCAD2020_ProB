@@ -84,6 +84,7 @@ struct Net{
         Point now_p, Point dir);
     void decrese_degree_middle_p(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
         Point now_p, Point dir);
+    void print_two_pins();
 };
 
 struct Cell{
