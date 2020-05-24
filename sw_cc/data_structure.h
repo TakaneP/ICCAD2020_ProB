@@ -44,7 +44,7 @@ public:
 
 struct Node{
     Point p;
-    bool is_steiner;
+    int type; //1: pin, 0 steiner node, -1 redundant point
     bool operator==(const Node& p2){
         return this->p == p2.p;
     }
@@ -74,7 +74,9 @@ struct Net{
         std::vector<MasterCell>& masterCells
         );
     void traverse_passing_map(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
-        std::unordered_set <Point,MyHashFunction>& pin_map, Point start_p);
+        std::unordered_set <Point,MyHashFunction>& pin_map, 
+        std::unordered_set <Point,MyHashFunction>& steiner_map,
+        Point start_p);
     Point return_next_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
     bool check_map_legal(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
     bool check_map_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p, Point dir);
