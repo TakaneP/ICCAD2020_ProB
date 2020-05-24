@@ -14,7 +14,21 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
         int pin_idx = pin.second;
         auto& cell = cellInstances[cell_idx];
         int layer = masterCells[cell.masterCell].pins[pin_idx].layer;
-        pin_map.emplace(cell.x,cell.y,layer);    
+        Point p(cell.x,cell.y,layer);
+        if(pin_map.find(p) != pin_map.end()) {
+            // pin in same GCell
+            if (minRoutingLayer >= 0) {
+                std::cout << "minRoutingLayer: " << minRoutingLayer << endl; 
+                pin_map.emplace(cell.x,cell.y,minRoutingLayer);    
+            }
+            TwoPinNet same_cell_net;
+            same_cell_net.n1.p = p;
+            same_cell_net.n2.p = p;
+            same_cell_net.paths.push_back(std::pair<Point,Point>(p,p));
+            routingTree.push_back(same_cell_net);
+        }
+        else
+            pin_map.emplace(cell.x,cell.y,layer);    
     }
     cout << "pins:\n";
     for(auto pin:pin_map)
@@ -34,7 +48,7 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
                     degreeMap[n][segment.first.y][segment.first.z].left = 1;
                 }
                 if(degreeMap[n][segment.first.y][segment.first.z].return_degree() >= 3) 
-                    pin_map.emplace(n,segment.first.y,segment.first.x);
+                    pin_map.emplace(n,segment.first.y,segment.first.z);
             }       
         }
         else if(segment.first.y != segment.second.y) {
@@ -76,6 +90,26 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     Point start = *pin_map.begin();
     cout << "start: " << start << endl;
     traverse_passing_map(degreeMap, pin_map, start);
+    for(auto twopin : this->routingTree) {
+        cout << endl << twopin.n1.p << " to " << twopin.n2.p << "!!!\n";
+        for(auto path : twopin.paths) {
+            cout << "path: " << path.first << " " << path.second << endl;
+        }
+    }
+    
+    int x_bound = degreeMap.size();
+    int y_bound = degreeMap[0].size();
+    int z_bound = degreeMap[0][0].size();
+    for (int x=0; x < x_bound; x++) {
+        for(int y=0; y<y_bound; y++) {
+            for(int z=0;z<z_bound; z++) {
+                if (degreeMap[x][y][z].return_degree()!=0){
+                    cout << "error degree: "<< x << y << z << endl;
+                }
+            }
+        }
+    }
+  
 }
 
 void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, 
@@ -85,10 +119,8 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
     bool is_pin = (pin_map.find(start_p) != pin_map.end());
     while(true) {     
         Point dir = return_next_dir(degreeMap, start_p);
-        //if (start_p == Point(1,1,0)) {
-            cout << "start point: " << start_p << endl;
-            cout << "dir " << dir << endl;
-        //}
+        cout << "start point: " << start_p << endl;
+        cout << "dir " << dir << endl;
         if(dir == Point(-1,-1,-1))
             break;
         // -dir because delete outgoing edge
@@ -116,19 +148,28 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
             else {
                 // keep propogate
                 Point next_p = now_p + dir;            
-                if(check_map_legal(degreeMap, next_p) && 
-                degreeMap[next_p.x][next_p.y][next_p.z].return_degree()) {
+                if(check_map_legal(degreeMap, next_p) && check_map_dir(degreeMap, now_p, dir)) {
                     decrese_degree_middle_p(degreeMap, now_p, dir);
                 }
                 else {
                     // create segment path
-                    cout << "else\n";
                     decrese_degree_endpoint(degreeMap, now_p, dir);
                     path.second = now_p;
                     segment.paths.push_back(path);
                     cout << "path: " << path.first << " " << path.second << endl;
                     path.first = now_p;
                     dir = return_next_dir(degreeMap, now_p);
+                    if(dir == Point(-1,-1,-1)) {
+                        // redundant net
+                        path.second = now_p;
+                        segment.paths.push_back(path);
+                        cout << "redundant path: " << path.first << " " << path.second << endl;
+                        segment.n2.p = now_p;
+                        this->routingTree.push_back(segment); 
+                        break;
+                    } else {
+                        decrese_degree_endpoint(degreeMap, now_p, Point(-dir.x, -dir.y, -dir.z));
+                    }                   
                 }
             }
         }
@@ -159,6 +200,21 @@ bool Net::check_map_legal(vector<vector<vector<DegreeNode>>>& degreeMap, Point n
     return (now_p.x<x_bound && now_p.x>=0 && 
             now_p.y<y_bound && now_p.y>=0 && 
             now_p.z<z_bound && now_p.z>=0);
+}
+
+bool Net::check_map_dir(vector<vector<vector<DegreeNode>>>& degreeMap, Point now_p, Point dir) {
+    if(dir.x==1)
+        return degreeMap[now_p.x][now_p.y][now_p.z].right; 
+    if(dir.x==-1)
+        return degreeMap[now_p.x][now_p.y][now_p.z].left;
+    if(dir.y==1)
+        return degreeMap[now_p.x][now_p.y][now_p.z].up;
+    if(dir.y==-1)       
+        return degreeMap[now_p.x][now_p.y][now_p.z].down;
+    if(dir.z==1)
+        return degreeMap[now_p.x][now_p.y][now_p.z].top;
+    if(dir.z==-1)
+        return degreeMap[now_p.x][now_p.y][now_p.z].bottom;       
 }
 
 void Net::decrese_degree_endpoint(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
@@ -359,8 +415,9 @@ void RoutingGraph::construct_2pin_nets() {
         }
     }
     // mark segment passing
+    int a=0;
     for(auto& net : nets) {
-        cout << "\nNew net:\n";
+        cout << "\nNew net: " << a++ << "\n";
         net.convert_seg_to_2pin(degreeMap, cellInstances, masterCells);
     }
 
