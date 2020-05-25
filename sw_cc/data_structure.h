@@ -5,6 +5,7 @@
 #define DATASTRUCTURE
 
 class SegmentTree;
+struct Cell;
 
 struct Pin{
     Pin() {}
@@ -24,22 +25,66 @@ struct Point{
         os<<"("<<dt.x<<","<<dt.y<<","<<dt.z<<")";
         return os;
     }
-    bool operator==(const Point& p2){
+    bool operator==(const Point& p2) const{
         return (this->x==p2.x) && (this->y==p2.y) && (this->z==p2.z);
+    }
+    Point operator+(const Point& p2) const{
+        return Point(this->x+p2.x, this->y+p2.y, this->z+p2.z);
     }
     int x,y,z;
 };
 
+class MyHashFunction { 
+public: 
+    size_t operator()(const Point& p) const
+    { 
+        return (p.x+p.y*2000+p.z*2000*2000);
+    } 
+}; 
+
+struct Node{
+    Point p;
+    int type; //1: pin, 0 steiner node, -1 redundant point
+    bool operator==(const Node& p2){
+        return this->p == p2.p;
+    }
+};
+
 struct TwoPinNet{
-    Point p1, p2;
+    Node n1, n2;
     std::vector<std::pair<Point,Point>> paths;
+};
+
+struct DegreeNode{
+    // up/down is y axis, left/right is x axis, top/bottom is z axis
+    DegreeNode() {up=0, down=0, left=0, right=0, top=0, bottom=0;}
+    bool up, down, left, right, top, bottom;
+    int return_degree(){
+        return (int)up+down+left+right+top+bottom;
+    }
 };
 
 struct Net{
     int minRoutingLayer;
     std::vector<std::pair<int,int>> pins;
     std::vector<std::pair<Point,Point>> routingSegments;
-    void Convert_seg_to_2pin();
+    std::vector<TwoPinNet> routingTree;
+    void convert_seg_to_2pin(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
+        std::vector<Cell>& cellInstances,
+        std::vector<MasterCell>& masterCells
+        );
+    void traverse_passing_map(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
+        std::unordered_set <Point,MyHashFunction>& pin_map, 
+        std::unordered_set <Point,MyHashFunction>& steiner_map,
+        Point start_p);
+    Point return_next_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
+    bool check_map_legal(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
+    bool check_map_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p, Point dir);
+    void decrese_degree_endpoint(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
+        Point now_p, Point dir);
+    void decrese_degree_middle_p(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
+        Point now_p, Point dir);
+    void print_two_pins();
 };
 
 struct Cell{
@@ -72,6 +117,7 @@ public:
     void del_net_from_graph(int netIndex);
     void del_seg_demand(std::pair<Point,Point> segment, int netIndex);
     void del_seg_demand_from_graph(int x, int y, int z, int netIndex);
+    void construct_2pin_nets();
     int row, column, layer;
     int maxCellMove;
     SegmentTree* segmentTree;
