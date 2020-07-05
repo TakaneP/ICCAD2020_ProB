@@ -1,6 +1,10 @@
 #include<bits/stdc++.h>
 #include<unordered_set>
 
+extern "C" {
+#include"flute-3.1/flute.h"
+}
+
 #ifndef DATASTRUCTURE
 #define DATASTRUCTURE
 
@@ -118,6 +122,7 @@ public:
     void del_seg_demand(std::pair<Point,Point> segment, int netIndex);
     void del_seg_demand_from_graph(int x, int y, int z, int netIndex);
     void construct_2pin_nets();
+    Tree RSMT(std::vector<int> x, std::vector<int> y);
     int row, column, layer;
     int maxCellMove;
     SegmentTree* segmentTree;
