@@ -1,6 +1,10 @@
 #include<bits/stdc++.h>
 #include "data_structure.h"
 #include "segment_tree.h"
+
+extern "C" {
+#include "flute-3.1/flute.h"
+}
 using namespace std;
 
 void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap, 
@@ -406,4 +410,22 @@ void RoutingGraph::construct_2pin_nets() {
         net.convert_seg_to_2pin(degreeMap, cellInstances, masterCells);
     }
 
+}
+
+Tree RoutingGraph::RSMT(vector<int> x, vector<int> y) {
+    if(x.size() != y.size()) {
+        printf("Step RSMT construction: Error, size of x not equal to size of y\n");
+        exit(1);
+	}
+    int d = x.size();
+    Tree flutetree;
+    int flutewl;
+    readLUT();
+    int *x_arr = &x[0];
+    int *y_arr = &y[0];
+    flutetree = flute(d, x_arr, y_arr, ACCURACY);
+    //printf("FLUTE wirelength = %d\n", flutetree.length);
+    //flutewl = flute_wl(d, x_arr, y_arr, ACCURACY);
+    //printf("FLUTE wirelength (without RSMT construction) = %d\n", flutewl);
+    return flutetree;
 }
