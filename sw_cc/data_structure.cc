@@ -2,9 +2,6 @@
 #include "data_structure.h"
 #include "segment_tree.h"
 
-extern "C" {
-#include "flute-3.1/flute.h"
-}
 using namespace std;
 
 void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap, 
