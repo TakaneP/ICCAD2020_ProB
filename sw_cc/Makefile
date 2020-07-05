@@ -4,8 +4,9 @@ OBJ_DIR	=	objs
 FLUTE_DIR = flute-3.1
 CFLAGS = -g -O3
 
-FLUTE_SRC    = $(FLUTE_DIR)/dist.c $(FLUTE_DIR)/dl.c $(FLUTE_DIR)/err.c $(FLUTE_DIR)/heap.c $(FLUTE_DIR)/mst2.c $(FLUTE_DIR)/neighbors.c $(FLUTE_DIR)/flute.c $(FLUTE_DIR)/flute_mst.c
-FLUTE_OBJ    = $(FLUTE_SRC:.c=.o)
+FLUTE_SRC     = $(FLUTE_DIR)/dist.c $(FLUTE_DIR)/dl.c $(FLUTE_DIR)/err.c $(FLUTE_DIR)/heap.c \
+				$(FLUTE_DIR)/mst2.c $(FLUTE_DIR)/neighbors.c $(FLUTE_DIR)/flute.c $(FLUTE_DIR)/flute_mst.c
+FLUTE_OBJ     = $(FLUTE_SRC:.c=.o)
 
 all: $(EXE)
 
@@ -23,6 +24,9 @@ $(OBJ_DIR)/data_structure.o: data_structure.cc data_structure.h segment_tree.h |
 
 $(OBJ_DIR)/segment_tree.o: segment_tree.cc segment_tree.h | obj_dir
 	$(CXX) $(CFLAGS) -c $< -o $@
+
+#$(FLUTE_DIR)/flute.o: $(FLUTE_DIR)/flute.c $(FLUTE_DIR)/flute.h $(FLUTE_DIR)/Makefile
+#	cd $(FLUTE_DIR) && make 
 
 obj_dir:
 	mkdir -p $(OBJ_DIR)
