@@ -1,0 +1,7 @@
+
+*.o
+*.exe
+*.json
+*.txt
+sw_cc/tmp
+sw_cc/tmp2

@@ -73,6 +73,10 @@ struct Net{
         std::vector<Cell>& cellInstances,
         std::vector<MasterCell>& masterCells
         );
+    // add segment in passingMap, and construct steiner_map
+    void set_passing_map(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, std::vector<Cell>& cellInstances, 
+        std::vector<MasterCell>& masterCells, std::unordered_set <Point,MyHashFunction>& pin_map, 
+        std::unordered_set <Point,MyHashFunction>& steiner_map, int value);
     void traverse_passing_map(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
         std::unordered_set <Point,MyHashFunction>& pin_map, 
         std::unordered_set <Point,MyHashFunction>& steiner_map,

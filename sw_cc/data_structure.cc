@@ -33,20 +33,32 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
             pin_map.emplace(cell.x,cell.y,layer);    
     }
     // add segment in passingMap, and construct steiner_map
+    set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 1);
+    // construct 2pin net
+    Point start = *pin_map.begin();
+    traverse_passing_map(degreeMap, pin_map, steiner_map, start);
+    // reset passingMap
+    set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 0);
+    print_two_pins();
+}
+
+void Net::set_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, std::vector<Cell>& cellInstances, std::vector<MasterCell>& masterCells, 
+    unordered_set <Point,MyHashFunction>& pin_map, unordered_set <Point,MyHashFunction>& steiner_map, int value) {
+    // add segment in passingMap, and construct steiner_map
     for(const auto& segment : routingSegments) {
         if(segment.first.x != segment.second.x) {
             int start = min(segment.first.x, segment.second.x);
             int end = max(segment.first.x, segment.second.x);
             for(int n=start; n<=end; n++) {
                 if(n == start)
-                    degreeMap[n][segment.first.y][segment.first.z].right = 1;
+                    degreeMap[n][segment.first.y][segment.first.z].right = value;
                 else if(n == end)
-                    degreeMap[n][segment.first.y][segment.first.z].left = 1;
+                    degreeMap[n][segment.first.y][segment.first.z].left = value;
                 else {
-                    degreeMap[n][segment.first.y][segment.first.z].right = 1;
-                    degreeMap[n][segment.first.y][segment.first.z].left = 1;
+                    degreeMap[n][segment.first.y][segment.first.z].right = value;
+                    degreeMap[n][segment.first.y][segment.first.z].left = value;
                 }
-                if(degreeMap[n][segment.first.y][segment.first.z].return_degree() >= 3) 
+                if(value && degreeMap[n][segment.first.y][segment.first.z].return_degree() >= 3) 
                     steiner_map.emplace(n,segment.first.y,segment.first.z);
             }       
         }
@@ -55,14 +67,14 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
             int end = max(segment.first.y, segment.second.y);
             for(int n=start; n<=end; n++) {
                 if(n == start)
-                    degreeMap[segment.first.x][n][segment.first.z].up = 1;
+                    degreeMap[segment.first.x][n][segment.first.z].up = value;
                 else if(n == end)
-                    degreeMap[segment.first.x][n][segment.first.z].down = 1;
+                    degreeMap[segment.first.x][n][segment.first.z].down = value;
                 else {
-                    degreeMap[segment.first.x][n][segment.first.z].up = 1;
-                    degreeMap[segment.first.x][n][segment.first.z].down = 1;
+                    degreeMap[segment.first.x][n][segment.first.z].up = value;
+                    degreeMap[segment.first.x][n][segment.first.z].down = value;
                 }
-                if(degreeMap[segment.first.x][n][segment.first.z].return_degree() >= 3)
+                if(value && degreeMap[segment.first.x][n][segment.first.z].return_degree() >= 3)
                     steiner_map.emplace(segment.first.x,n,segment.first.z);
             }
         } else if(segment.first.z != segment.second.z) {
@@ -70,22 +82,18 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
             int end = max(segment.first.z, segment.second.z);
             for(int n=start; n<=end; n++) {
                 if(n == start)
-                    degreeMap[segment.first.x][segment.first.y][n].top = 1;
+                    degreeMap[segment.first.x][segment.first.y][n].top = value;
                 else if(n == end)
-                    degreeMap[segment.first.x][segment.first.y][n].bottom = 1;
+                    degreeMap[segment.first.x][segment.first.y][n].bottom = value;
                 else {
-                    degreeMap[segment.first.x][segment.first.y][n].top = 1;
-                    degreeMap[segment.first.x][segment.first.y][n].bottom = 1;
+                    degreeMap[segment.first.x][segment.first.y][n].top = value;
+                    degreeMap[segment.first.x][segment.first.y][n].bottom = value;
                 }
-                if(degreeMap[segment.first.x][segment.first.y][n].return_degree() >= 3) 
+                if(value && degreeMap[segment.first.x][segment.first.y][n].return_degree() >= 3) 
                     steiner_map.emplace(segment.first.x,segment.first.y,n);
             }
         }
     }
-    // construct 2pin net
-    Point start = *pin_map.begin();
-    traverse_passing_map(degreeMap, pin_map, steiner_map, start);
-    print_two_pins();
 }
 
 void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, 
@@ -402,7 +410,7 @@ void RoutingGraph::construct_2pin_nets() {
     // mark segment passing
     int a=0;
     for(auto& net : nets) {
-        cout << "\nNew net: " << a++ << "\n";
+        //cout << "\nNew net: " << a++ << "\n";
         net.convert_seg_to_2pin(degreeMap, cellInstances, masterCells);
     }
 
