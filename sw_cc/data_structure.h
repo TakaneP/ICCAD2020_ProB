@@ -48,7 +48,8 @@ public:
 
 struct Node{
     Point p;
-    int type; //1: pin, 0 steiner node, -1 redundant point
+    int type; //1: pin, 0 steiner node, -1 redundant point, 2: merged local pin
+    std::vector<std::pair<int,int>> mergedLocalPins; 
     bool operator==(const Node& p2){
         return this->p == p2.p;
     }
@@ -80,7 +81,8 @@ struct Net{
     void traverse_passing_map(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
         std::unordered_set <Point,MyHashFunction>& pin_map, 
         std::unordered_set <Point,MyHashFunction>& steiner_map,
-        Point start_p);
+        Point start_p,
+        std::map<std::tuple<int,int,int>, std::vector<std::pair<int,int>>>& localNets);
     Point return_next_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
     bool check_map_legal(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
     bool check_map_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p, Point dir);
