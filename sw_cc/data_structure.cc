@@ -49,7 +49,7 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 1);
     // construct 2pin net
     Point start = *pin_map.begin();
-    traverse_passing_map(degreeMap, pin_map, steiner_map, start);
+    traverse_passing_map(degreeMap, pin_map, steiner_map, start, localNets);
     // reset passingMap
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 0);
     print_two_pins();
@@ -108,10 +108,6 @@ void Net::set_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, std::ve
             }
         }
     }
-    // construct 2pin net
-    Point start = *pin_map.begin();
-    traverse_passing_map(degreeMap, pin_map, steiner_map, start, localNets);
-    print_two_pins();
 }
 
 void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, 
@@ -520,8 +516,8 @@ Tree RoutingGraph::RSMT(vector<int> x, vector<int> y) {
     int *x_arr = &x[0];
     int *y_arr = &y[0];
     flutetree = flute(d, x_arr, y_arr, ACCURACY);
-    //printf("FLUTE wirelength = %d\n", flutetree.length);
-    //flutewl = flute_wl(d, x_arr, y_arr, ACCURACY);
-    //printf("FLUTE wirelength (without RSMT construction) = %d\n", flutewl);
+    printf("FLUTE wirelength = %d\n", flutetree.length);
+    flutewl = flute_wl(d, x_arr, y_arr, ACCURACY);
+    printf("FLUTE wirelength (without RSMT construction) = %d\n", flutewl);
     return flutetree;
 }
