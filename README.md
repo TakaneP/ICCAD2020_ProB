@@ -2,3 +2,4 @@
 
 Yueh-Hsin TODO:
   add segment tree in del_seg_demand()
+Add pin information into TwoPinNet 
