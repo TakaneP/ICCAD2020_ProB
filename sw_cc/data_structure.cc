@@ -3,6 +3,10 @@
 #include "segment_tree.h"
 using namespace std;
 
+size_t MyHashFunction::operator()(const Point& p) const {
+    return (p.x+p.y*2000+p.z*2000*2000);
+}
+
 void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap, 
         std::vector<Cell>& cellInstances, 
         std::vector<MasterCell>& masterCells
@@ -40,6 +44,7 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     // reset passingMap
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 0);
     print_two_pins();
+    construct_branch_nodes();
 }
 
 void Net::set_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, std::vector<Cell>& cellInstances, std::vector<MasterCell>& masterCells, 
@@ -240,6 +245,59 @@ void Net::print_two_pins() {
     }  
 }
 
+void Net::construct_branch_nodes() {
+    // construct neighbor relation
+    for(auto& twopin : this->routingTree) {
+        Point p1 = twopin.n1.p;
+        Point p2 = twopin.n2.p;
+        auto p1_ptr = branch_nodes.find(p1);
+        auto p2_ptr = branch_nodes.find(p2);
+        if(p1_ptr == branch_nodes.end()) {
+            branch_nodes.emplace(p1, TreeNode(twopin.n1));
+            p1_ptr = branch_nodes.find(p1);      
+        }
+        if(p2_ptr == branch_nodes.end()) {
+            branch_nodes.emplace(p2, TreeNode(twopin.n2));
+            p2_ptr = branch_nodes.find(p2);
+        }
+        p1_ptr->second.neighbors.push_back(make_pair(p2,twopin));
+        p2_ptr->second.neighbors.push_back(make_pair(p1,twopin));
+    }  
+    // remove dangling wire
+    queue<Point> todo_points;
+    for(auto& treenode : this->branch_nodes) {
+        todo_points.push(treenode.first);
+    }
+    while(todo_points.size() > 0) {
+        Point tree_p = todo_points.front();
+        todo_points.pop();
+        if (branch_nodes.find(tree_p) == branch_nodes.end())
+            continue;
+        auto& treenode = branch_nodes[tree_p];
+        // find dangling endpoint
+        if(treenode.node.type == -1) {
+            Point neighbor = treenode.neighbors[0].first;
+            if(tree_p == Point(2,1,0))
+            if (branch_nodes.find(neighbor) == branch_nodes.end())
+                continue;
+            TreeNode& effect_node = branch_nodes[neighbor];
+            todo_points.push(neighbor);
+            for(int n=0; n<effect_node.neighbors.size(); n++) {           
+                if(effect_node.neighbors[n].first == tree_p) {
+                    // remove dangling endpoint's neighbor to dangling
+                    effect_node.neighbors.erase(effect_node.neighbors.begin()+n);               
+                    if(effect_node.node.type == 0 && effect_node.neighbors.size()<=1) {
+                        effect_node.node.type = -1;
+                    }
+                    break;
+                }
+            }
+            // remove dangling twopin-net
+            branch_nodes.erase(tree_p);
+        }
+    }
+}
+
 RoutingGraph::RoutingGraph() {segmentTree = new SegmentTree(*this);}
 
 RoutingGraph::~RoutingGraph() {delete segmentTree;}
@@ -410,7 +468,7 @@ void RoutingGraph::construct_2pin_nets() {
     // mark segment passing
     int a=0;
     for(auto& net : nets) {
-        //cout << "\nNew net: " << a++ << "\n";
+        cout << "\nNew net: " << a++ << "\n";
         net.convert_seg_to_2pin(degreeMap, cellInstances, masterCells);
     }
 

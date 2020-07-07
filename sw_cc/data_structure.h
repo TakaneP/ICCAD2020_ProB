@@ -6,6 +6,8 @@
 
 class SegmentTree;
 struct Cell;
+struct TreeNode;
+struct Node;
 
 struct Pin{
     Pin() {}
@@ -36,10 +38,7 @@ struct Point{
 
 class MyHashFunction { 
 public: 
-    size_t operator()(const Point& p) const
-    { 
-        return (p.x+p.y*2000+p.z*2000*2000);
-    } 
+    size_t operator()(const Point& p) const;
 }; 
 
 struct Node{
@@ -64,11 +63,20 @@ struct DegreeNode{
     }
 };
 
+struct TreeNode{
+    TreeNode(){}
+    TreeNode(Node n): node(n) {}
+    Node node;
+    std::vector<std::pair<Point,TwoPinNet>> neighbors;
+};
+
 struct Net{
     int minRoutingLayer;
     std::vector<std::pair<int,int>> pins;
     std::vector<std::pair<Point,Point>> routingSegments;
     std::vector<TwoPinNet> routingTree;
+    std::unordered_map <Point,TreeNode,MyHashFunction> branch_nodes;
+
     void convert_seg_to_2pin(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
         std::vector<Cell>& cellInstances,
         std::vector<MasterCell>& masterCells
@@ -89,6 +97,7 @@ struct Net{
     void decrese_degree_middle_p(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
         Point now_p, Point dir);
     void print_two_pins();
+    void construct_branch_nodes();
 };
 
 struct Cell{
