@@ -1,6 +1,7 @@
 #include<bits/stdc++.h>
 #include "data_structure.h"
 #include "segment_tree.h"
+
 using namespace std;
 
 size_t MyHashFunction::operator()(const Point& p) const {
@@ -14,16 +15,24 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     // construct pin set 
     unordered_set <Point,MyHashFunction> pin_map;
     unordered_set <Point,MyHashFunction> steiner_map;
+    int row = degreeMap.size();
+    int column = (degreeMap.empty())? 0:degreeMap[0].size();
+    vector<bool> checkRedundant(row*column, false);
+    map<tuple<int,int,int>, vector<pair<int,int>>> localNets;
     for(const auto& pin:pins) {
         int cell_idx = pin.first;
         int pin_idx = pin.second;
         auto& cell = cellInstances[cell_idx];
         int layer = masterCells[cell.masterCell].pins[pin_idx].layer;
         Point p(cell.x,cell.y,layer);
+        localNets[{cell.x, cell.y, layer}].push_back({cell_idx, pin_idx});
+        pin_map.emplace(cell.x,cell.y,layer);
+        /*
         if(pin_map.find(p) != pin_map.end()) {
             // pin in same GCell
-            if (minRoutingLayer >= 0) {
-                steiner_map.emplace(cell.x,cell.y,minRoutingLayer);    
+            if (minRoutingLayer > layer && !checkRedundant[cell.x*row + cell.y]) {
+                steiner_map.emplace(cell.x,cell.y,minRoutingLayer);
+                checkRedundant[cell.x*row + cell.y] = true;   
             }
             TwoPinNet same_cell_net;
             same_cell_net.n1.p = p;
@@ -33,8 +42,8 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
             same_cell_net.paths.push_back(std::pair<Point,Point>(p,p));
             routingTree.push_back(same_cell_net);
         }
-        else
-            pin_map.emplace(cell.x,cell.y,layer);    
+        else 
+            pin_map.emplace(cell.x,cell.y,layer);*/
     }
     // add segment in passingMap, and construct steiner_map
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 1);
@@ -99,12 +108,17 @@ void Net::set_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, std::ve
             }
         }
     }
+    // construct 2pin net
+    Point start = *pin_map.begin();
+    traverse_passing_map(degreeMap, pin_map, steiner_map, start, localNets);
+    print_two_pins();
 }
 
 void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, 
         unordered_set <Point,MyHashFunction>& pin_map, 
         unordered_set <Point,MyHashFunction>& steiner_map, 
-        Point start_p
+        Point start_p,
+        map<tuple<int,int,int>, vector<pair<int,int>>>& localNets
         ) {
     bool is_pin = (pin_map.find(start_p) != pin_map.end());
     while(true) {  // for 6 dir     
@@ -116,7 +130,12 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
         Point now_p = start_p;
         TwoPinNet segment;
         segment.n1.p = start_p;
-        segment.n1.type = (is_pin) ? 1 : 0;
+        if(localNets[{now_p.x, now_p.y, now_p.z}].size() > 1) {
+            segment.n1.type = 2;
+            segment.n1.mergedLocalPins = localNets[{now_p.x, now_p.y, now_p.z}];
+        }
+        else
+            segment.n1.type = (is_pin) ? 1 : 0;
         std::pair<Point,Point> path;
         path.first = start_p;
         while(true) { // for traversing
@@ -129,9 +148,14 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
                 path.second = now_p;
                 segment.paths.push_back(path);
                 segment.n2.p = now_p;
-                segment.n2.type = (is_pin) ? 1 : 0;
+                if(localNets[{now_p.x, now_p.y, now_p.z}].size() > 1) {
+                    segment.n2.type = 2;
+                    segment.n2.mergedLocalPins = localNets[{now_p.x, now_p.y, now_p.z}];
+                }
+                else
+                    segment.n2.type = (is_pin) ? 1 : 0;
                 this->routingTree.push_back(segment);              
-                traverse_passing_map(degreeMap, pin_map, steiner_map, now_p);
+                traverse_passing_map(degreeMap, pin_map, steiner_map, now_p, localNets);
                 break;
             }
             else {
@@ -241,6 +265,16 @@ void Net::print_two_pins() {
         twopin.n2.p << " " << twopin.n2.type << "\n";
         for(auto path : twopin.paths) {
             cout << "path: " << path.first << " " << path.second << endl;
+        }
+        if(twopin.n1.type == 2) {
+            cout << "local net Node1: \n";
+            for(auto& pin : twopin.n1.mergedLocalPins) cout << "Cell " << pin.first+1 << " Pin " << pin.second+1  << " ";
+            cout << "\n";
+        }
+        if(twopin.n2.type == 2) {
+            cout << "local net Node2: \n";
+            for(auto& pin : twopin.n2.mergedLocalPins) cout << "Cell " << pin.first+1 << " Pin " << pin.second+1 << " ";
+            cout << "\n";
         }
     }  
 }
@@ -472,4 +506,22 @@ void RoutingGraph::construct_2pin_nets() {
         net.convert_seg_to_2pin(degreeMap, cellInstances, masterCells);
     }
 
+}
+
+Tree RoutingGraph::RSMT(vector<int> x, vector<int> y) {
+    if(x.size() != y.size()) {
+        printf("Step RSMT construction: Error, size of x not equal to size of y\n");
+        exit(1);
+	}
+    int d = x.size();
+    Tree flutetree;
+    int flutewl;
+    readLUT();
+    int *x_arr = &x[0];
+    int *y_arr = &y[0];
+    flutetree = flute(d, x_arr, y_arr, ACCURACY);
+    //printf("FLUTE wirelength = %d\n", flutetree.length);
+    //flutewl = flute_wl(d, x_arr, y_arr, ACCURACY);
+    //printf("FLUTE wirelength (without RSMT construction) = %d\n", flutewl);
+    return flutetree;
 }
