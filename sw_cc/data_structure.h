@@ -104,6 +104,9 @@ struct Net{
         Point now_p, Point dir);
     void print_two_pins();
     void construct_branch_nodes();
+    void remove_dangling_wire();
+    // construct MST to remove cycle in branch_nodes
+    void remove_branch_cycle();
 };
 
 struct Cell{

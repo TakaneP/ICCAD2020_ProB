@@ -54,6 +54,7 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 0);
     print_two_pins();
     construct_branch_nodes();
+    remove_dangling_wire();
 }
 
 void Net::set_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, std::vector<Cell>& cellInstances, std::vector<MasterCell>& masterCells, 
@@ -293,7 +294,9 @@ void Net::construct_branch_nodes() {
         p1_ptr->second.neighbors.push_back(make_pair(p2,twopin));
         p2_ptr->second.neighbors.push_back(make_pair(p1,twopin));
     }  
-    // remove dangling wire
+}
+
+void Net::remove_dangling_wire() {
     queue<Point> todo_points;
     for(auto& treenode : this->branch_nodes) {
         todo_points.push(treenode.first);
