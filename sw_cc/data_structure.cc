@@ -273,6 +273,7 @@ void Net::print_two_pins() {
             for(auto& pin : twopin.n2.mergedLocalPins) cout << "Cell " << pin.first+1 << " Pin " << pin.second+1 << " ";
             cout << "\n";
         }
+        cout << "wl: " << twopin.wire_length() << endl;
     }  
 }
 
@@ -329,6 +330,11 @@ void Net::remove_dangling_wire() {
             branch_nodes.erase(tree_p);
         }
     }
+}
+
+void Net::remove_branch_cycle() {
+    std::unordered_set <Point,MyHashFunction> visited_nodes;
+
 }
 
 RoutingGraph::RoutingGraph() {segmentTree = new SegmentTree(*this);}
@@ -523,4 +529,12 @@ Tree RoutingGraph::RSMT(vector<int> x, vector<int> y) {
     flutewl = flute_wl(d, x_arr, y_arr, ACCURACY);
     printf("FLUTE wirelength (without RSMT construction) = %d\n", flutewl);
     return flutetree;
+}
+
+int TwoPinNet::wire_length() {
+    int wire_length = 0;
+    for(auto& path : paths) {
+        wire_length += abs((path.first.x-path.second.x)) + abs((path.first.y-path.second.y)) + abs((path.first.z-path.second.z));
+    }
+    return wire_length;
 }
