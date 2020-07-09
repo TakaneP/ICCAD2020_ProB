@@ -56,7 +56,7 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     traverse_passing_map(degreeMap, pin_map, steiner_map, start, localNets);
     // reset passingMap
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 0);
-    print_two_pins();
+    //print_two_pins();
     construct_branch_nodes();
     remove_dangling_wire();
     remove_branch_cycle();
@@ -335,6 +335,8 @@ void Net::remove_dangling_wire() {
     }
 }
 
+RoutingGraph::RoutingGraph(): usedCellMove(0) {segmentTree = new SegmentTree(*this);}
+
 void Net::remove_branch_cycle() {
     std::unordered_set <Point,MyHashFunction> visited_nodes;
     std::priority_queue<TwoPinNet, vector<TwoPinNet>, greater<TwoPinNet>> frontier_edges;
@@ -389,7 +391,6 @@ void Net::remove_branch_cycle() {
     }
 }
 
-RoutingGraph::RoutingGraph() {segmentTree = new SegmentTree(*this);}
 
 RoutingGraph::~RoutingGraph() {delete segmentTree;}
 
@@ -559,7 +560,7 @@ void RoutingGraph::construct_2pin_nets() {
     // mark segment passing
     int a=0;
     for(auto& net : nets) {
-        cout << "\nNew net: " << a++ << "\n";
+        //cout << "\nNew net: " << a++ << "\n";
         net.convert_seg_to_2pin(degreeMap, cellInstances, masterCells);
     }
 
