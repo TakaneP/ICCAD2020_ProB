@@ -57,8 +57,6 @@ struct Node{
 struct TwoPinNet{
     Node n1, n2;
     std::vector<std::pair<Point,Point>> paths;
-    int wire_length;
-    void update_wire_length();
 };
 
 struct DegreeNode{
@@ -83,7 +81,7 @@ struct Net{
     std::vector<std::pair<Point,Point>> routingSegments;
     std::vector<TwoPinNet> routingTree;
     std::unordered_map <Point,TreeNode,MyHashFunction> branch_nodes;
-
+    
     void convert_seg_to_2pin(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
         std::vector<Cell>& cellInstances,
         std::vector<MasterCell>& masterCells
@@ -145,8 +143,9 @@ public:
     Tree RSMT(std::vector<int> x, std::vector<int> y);
     int row, column, layer;
     int maxCellMove;
+    int usedCellMove; //number of moved cells
     SegmentTree* segmentTree;
-    std::vector<std::vector<std::unordered_map<int,int>>> cellCount;
+    std::vector<std::vector<std::unordered_map<int,int>>> cellCount; //for extra demand calculation
     std::vector<MasterCell> masterCells;
     std::vector<Cell> cellInstances;
     std::vector<std::vector<std::vector<Gcell>>> grids;
@@ -154,6 +153,7 @@ public:
     std::vector<Net> nets;
     std::unordered_map<int, std::unordered_map<int, std::unordered_map<int, int>>> sameGGrid;
     std::unordered_map<int, std::unordered_map<int, std::unordered_map<int, int>>> adjHGGrid;
+    std::unordered_set<int> movedCell; //moved cells
 };
 
 #endif
