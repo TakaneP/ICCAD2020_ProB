@@ -2,6 +2,7 @@
 #include"parser.h"
 #include"data_structure.h"
 #include"segment_tree.h"
+#include"output.h"
 
 using namespace std;
 
@@ -26,6 +27,11 @@ int main(int argc, char* argv[])
 	cout << fluteTree.length << "\n";
 
     routingGraph->construct_2pin_nets();
+    
+    if(argc == 3) {
+        string outputFile = argv[2];
+        output_file(routingGraph, outputFile);
+    }
     return 0;
 }
 
