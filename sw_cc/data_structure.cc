@@ -338,9 +338,24 @@ void Net::remove_dangling_wire() {
 void Net::remove_branch_cycle() {
     std::unordered_set <Point,MyHashFunction> visited_nodes;
     std::priority_queue<TwoPinNet, vector<TwoPinNet>, greater<TwoPinNet>> frontier_edges;
-    for(auto& rt : routingTree) {
-        rt.update_wire_length();
-        frontier_edges.push(rt);
+    std::unordered_set <Point,MyHashFunction> visited_points;
+    queue<Point> traverse_points;
+    if(branch_nodes.size() == 0) return;
+    Point bfs_p = branch_nodes.begin()->first;
+    traverse_points.push(bfs_p);
+    while(!traverse_points.empty()) { 
+        bfs_p = traverse_points.front();
+        traverse_points.pop();
+        auto& treenode = branch_nodes[bfs_p];
+        for(auto& neighbor : treenode.neighbors) {                     
+            if(visited_points.find(neighbor.first) != visited_points.end()) {
+                // visited before
+                continue;
+            }
+            frontier_edges.push(neighbor.second);
+            traverse_points.push(neighbor.first);
+        }
+        visited_points.insert(bfs_p);
     }
     // construct MST
     while(!frontier_edges.empty()) {
