@@ -109,6 +109,8 @@ struct Net{
     void remove_dangling_wire();
     // construct MST to remove cycle in branch_nodes
     void remove_branch_cycle();
+    // merge degree 2 steiner node
+    void merge_steiner_path(Point p);
 };
 
 struct Cell{
