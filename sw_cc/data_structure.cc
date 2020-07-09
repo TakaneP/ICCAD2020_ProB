@@ -4,6 +4,10 @@
 
 using namespace std;
 
+bool operator>(const TwoPinNet& n1, const TwoPinNet& n2) {
+    return n1.wire_length>n2.wire_length;
+}
+
 size_t MyHashFunction::operator()(const Point& p) const {
     return (p.x+p.y*2000+p.z*2000*2000);
 }
@@ -55,6 +59,7 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     //print_two_pins();
     construct_branch_nodes();
     remove_dangling_wire();
+    remove_branch_cycle();
 }
 
 void Net::set_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, std::vector<Cell>& cellInstances, std::vector<MasterCell>& masterCells, 
@@ -273,6 +278,8 @@ void Net::print_two_pins() {
             for(auto& pin : twopin.n2.mergedLocalPins) cout << "Cell " << pin.first+1 << " Pin " << pin.second+1 << " ";
             cout << "\n";
         }
+        twopin.update_wire_length();
+        cout << "wl: " << twopin.wire_length << endl;
     }  
 }
 
@@ -310,9 +317,6 @@ void Net::remove_dangling_wire() {
         // find dangling endpoint
         if(treenode.node.type == -1) {
             Point neighbor = treenode.neighbors[0].first;
-            if(tree_p == Point(2,1,0))
-            if (branch_nodes.find(neighbor) == branch_nodes.end())
-                continue;
             TreeNode& effect_node = branch_nodes[neighbor];
             todo_points.push(neighbor);
             for(int n=0; n<effect_node.neighbors.size(); n++) {           
@@ -332,6 +336,46 @@ void Net::remove_dangling_wire() {
 }
 
 RoutingGraph::RoutingGraph(): usedCellMove(0) {segmentTree = new SegmentTree(*this);}
+
+void Net::remove_branch_cycle() {
+    std::unordered_set <Point,MyHashFunction> visited_nodes;
+    std::priority_queue<TwoPinNet, vector<TwoPinNet>, greater<TwoPinNet>> frontier_edges;
+    for(auto& rt : routingTree) {
+        rt.update_wire_length();
+        frontier_edges.push(rt);
+    }
+    // construct MST
+    while(!frontier_edges.empty()) {
+        auto edge = frontier_edges.top();
+        frontier_edges.pop();
+        auto e1_iter = visited_nodes.find(edge.n1.p);
+        auto e2_iter = visited_nodes.find(edge.n2.p);
+        Point non_tree_node, tree_node;
+        if(e1_iter==visited_nodes.end()) {
+            visited_nodes.insert(edge.n1.p);  
+        } else if(e2_iter==visited_nodes.end()) {
+            visited_nodes.insert(edge.n2.p);  
+        } else {
+            //delete this edge in branch_nodes
+            auto& e1_treeNode = branch_nodes[edge.n1.p];
+            auto& e2_treeNode = branch_nodes[edge.n2.p];
+            for(int n=0; n<e1_treeNode.neighbors.size(); n++) {
+                if(e1_treeNode.neighbors[n].first == edge.n2.p) {
+                    e1_treeNode.neighbors.erase(e1_treeNode.neighbors.begin()+n);
+                    break;
+                }
+            }
+            for(int n=0; n<e2_treeNode.neighbors.size(); n++) {
+                if(e2_treeNode.neighbors[n].first == edge.n1.p) {
+                    e2_treeNode.neighbors.erase(e2_treeNode.neighbors.begin()+n);
+                    break;
+                }
+            }
+            continue;
+        }
+    }
+}
+
 
 RoutingGraph::~RoutingGraph() {delete segmentTree;}
 
@@ -523,4 +567,11 @@ Tree RoutingGraph::RSMT(vector<int> x, vector<int> y) {
     flutewl = flute_wl(d, x_arr, y_arr, ACCURACY);
     printf("FLUTE wirelength (without RSMT construction) = %d\n", flutewl);
     return flutetree;
+}
+
+void TwoPinNet::update_wire_length() {
+    wire_length = 0;
+    for(auto& path : paths) {
+        wire_length += abs((path.first.x-path.second.x)) + abs((path.first.y-path.second.y)) + abs((path.first.z-path.second.z));
+    }
 }

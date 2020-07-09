@@ -57,6 +57,8 @@ struct Node{
 struct TwoPinNet{
     Node n1, n2;
     std::vector<std::pair<Point,Point>> paths;
+    int wire_length;
+    void update_wire_length();
 };
 
 struct DegreeNode{
