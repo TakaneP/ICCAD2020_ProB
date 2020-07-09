@@ -5,3 +5,7 @@
 *.txt
 sw_cc/tmp
 sw_cc/tmp2
+*.stackdump
+sw_cc/tmp3
+sw_cc/tmp4
+sw_cc/tmp5
