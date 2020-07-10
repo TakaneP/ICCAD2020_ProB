@@ -59,6 +59,7 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     //print_two_pins();
     construct_branch_nodes();
     remove_dangling_wire();
+    //print_two_pins();
     remove_branch_cycle();
 }
 
@@ -156,7 +157,8 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
                 }
                 else
                     segment.n2.type = (is_pin) ? 1 : 0;
-                this->routingTree.push_back(segment);              
+                if(!(segment.n1.p == segment.n2.p))
+                    this->routingTree.push_back(segment);              
                 traverse_passing_map(degreeMap, pin_map, steiner_map, now_p, localNets);
                 break;
             }
@@ -335,42 +337,42 @@ void Net::remove_dangling_wire() {
     }
 }
 
-RoutingGraph::RoutingGraph(): usedCellMove(0) {segmentTree = new SegmentTree(*this);}
-
 void Net::remove_branch_cycle() {
-    std::unordered_set <Point,MyHashFunction> visited_nodes;
     std::priority_queue<TwoPinNet, vector<TwoPinNet>, greater<TwoPinNet>> frontier_edges;
-    std::unordered_set <Point,MyHashFunction> visited_points;
-    queue<Point> traverse_points;
-    if(branch_nodes.size() == 0) return;
-    Point bfs_p = branch_nodes.begin()->first;
-    traverse_points.push(bfs_p);
-    while(!traverse_points.empty()) { 
-        bfs_p = traverse_points.front();
-        traverse_points.pop();
-        auto& treenode = branch_nodes[bfs_p];
-        for(auto& neighbor : treenode.neighbors) {                     
-            if(visited_points.find(neighbor.first) != visited_points.end()) {
-                // visited before
-                continue;
-            }
-            frontier_edges.push(neighbor.second);
-            traverse_points.push(neighbor.first);
-        }
-        visited_points.insert(bfs_p);
-    }
+    std::queue<TwoPinNet> skip_edges;
+    std::unordered_set <Point,MyHashFunction> visited_nodes;
+    push_edge_in_queue(frontier_edges);
     // construct MST
     while(!frontier_edges.empty()) {
         auto edge = frontier_edges.top();
         frontier_edges.pop();
+        //cout << "Two_pin: " << edge.n1.p << " " << edge.n1.type << " to " << 
+        //edge.n2.p << " " << edge.n2.type << "\n";
+        if(visited_nodes.size() == 0) {
+            visited_nodes.insert(edge.n1.p);
+            visited_nodes.insert(edge.n2.p);
+            continue;
+        }
         auto e1_iter = visited_nodes.find(edge.n1.p);
         auto e2_iter = visited_nodes.find(edge.n2.p);
         Point non_tree_node, tree_node;
-        if(e1_iter==visited_nodes.end()) {
+        if(e1_iter==visited_nodes.end() && e2_iter!=visited_nodes.end()) {
             visited_nodes.insert(edge.n1.p);  
-        } else if(e2_iter==visited_nodes.end()) {
+            while(!skip_edges.empty()) {
+                frontier_edges.push(skip_edges.front());
+                skip_edges.pop();
+            }
+            continue;
+        } 
+        if(e2_iter==visited_nodes.end() && e2_iter!=visited_nodes.end()) {
             visited_nodes.insert(edge.n2.p);  
-        } else {
+            while(!skip_edges.empty()) {
+                frontier_edges.push(skip_edges.front());
+                skip_edges.pop();
+            }
+            continue;
+        } 
+        if(e1_iter!=visited_nodes.end() && e2_iter!=visited_nodes.end()) {
             //delete this edge in branch_nodes
             auto& e1_treeNode = branch_nodes[edge.n1.p];
             auto& e2_treeNode = branch_nodes[edge.n2.p];
@@ -387,11 +389,45 @@ void Net::remove_branch_cycle() {
                 }
             }
             continue;
+        } else {
+            skip_edges.push(edge);
         }
     }
 }
 
+void Net::push_edge_in_queue(std::priority_queue<TwoPinNet, vector<TwoPinNet>, greater<TwoPinNet>>& frontier_edges) {
+    // push edge in frontier_edges
+    std::unordered_set <Point,MyHashFunction> visited_points;
+    std::unordered_set <Point,MyHashFunction> traverse_points;
+    if(branch_nodes.size() == 0) return;
+    Point bfs_p = branch_nodes.begin()->first;
+    traverse_points.insert(bfs_p);
+    while(!traverse_points.empty()) { 
+        bfs_p = *traverse_points.begin();
+        traverse_points.erase(bfs_p);
+        auto& treenode = branch_nodes[bfs_p];
+        // use map to solve multi-edge, and record less wire length edge
+        unordered_map<Point,TwoPinNet,MyHashFunction> edges;
+        for(auto& neighbor : treenode.neighbors) {                     
+            if(visited_points.find(neighbor.first) != visited_points.end()) {
+                // visited before
+                continue;
+            }
+            neighbor.second.update_wire_length();
+            if(edges.find(neighbor.first) != edges.end()) {
+                if(edges[neighbor.first].wire_length > neighbor.second.wire_length)
+                    edges[neighbor.first] = neighbor.second;
+            }         
+        }
+        for(auto iter : edges) {
+            frontier_edges.push(iter.second);
+            traverse_points.insert(iter.first);
+        }
+        visited_points.insert(bfs_p);
+    }
+}
 
+RoutingGraph::RoutingGraph(): usedCellMove(0) {segmentTree = new SegmentTree(*this);}
 RoutingGraph::~RoutingGraph() {delete segmentTree;}
 
 void RoutingGraph::add_cell_demand_into_graph(int x, int y, int MCtype) {
@@ -560,7 +596,7 @@ void RoutingGraph::construct_2pin_nets() {
     // mark segment passing
     int a=0;
     for(auto& net : nets) {
-        //cout << "\nNew net: " << a++ << "\n";
+        cout << "\nNew net: " << a++ << "\n";
         net.convert_seg_to_2pin(degreeMap, cellInstances, masterCells);
     }
 
