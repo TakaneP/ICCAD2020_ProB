@@ -59,6 +59,7 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     //print_two_pins();
     construct_branch_nodes();
     remove_dangling_wire();
+    //print_two_pins();
     remove_branch_cycle();
 }
 
@@ -323,7 +324,6 @@ void Net::remove_dangling_wire() {
             for(int n=0; n<effect_node.neighbors.size(); n++) {           
                 if(effect_node.neighbors[n].first == tree_p) {
                     // remove dangling endpoint's neighbor to dangling
-                    cout << "***Dan****DELETE** " << effect_node.node.p << " " << tree_p << endl;
                     effect_node.neighbors.erase(effect_node.neighbors.begin()+n);               
                     if(effect_node.node.type == 0 && effect_node.neighbors.size()<=1) {
                         effect_node.node.type = -1;
@@ -346,6 +346,8 @@ void Net::remove_branch_cycle() {
     while(!frontier_edges.empty()) {
         auto edge = frontier_edges.top();
         frontier_edges.pop();
+        //cout << "Two_pin: " << edge.n1.p << " " << edge.n1.type << " to " << 
+        //edge.n2.p << " " << edge.n2.type << "\n";
         if(visited_nodes.size() == 0) {
             visited_nodes.insert(edge.n1.p);
             visited_nodes.insert(edge.n2.p);
@@ -404,14 +406,22 @@ void Net::push_edge_in_queue(std::priority_queue<TwoPinNet, vector<TwoPinNet>, g
         bfs_p = *traverse_points.begin();
         traverse_points.erase(bfs_p);
         auto& treenode = branch_nodes[bfs_p];
+        // use map to solve multi-edge, and record less wire length edge
+        unordered_map<Point,TwoPinNet,MyHashFunction> edges;
         for(auto& neighbor : treenode.neighbors) {                     
             if(visited_points.find(neighbor.first) != visited_points.end()) {
                 // visited before
                 continue;
             }
             neighbor.second.update_wire_length();
-            frontier_edges.push(neighbor.second);
-            traverse_points.insert(neighbor.first);
+            if(edges.find(neighbor.first) != edges.end()) {
+                if(edges[neighbor.first].wire_length > neighbor.second.wire_length)
+                    edges[neighbor.first] = neighbor.second;
+            }         
+        }
+        for(auto iter : edges) {
+            frontier_edges.push(iter.second);
+            traverse_points.insert(iter.first);
         }
         visited_points.insert(bfs_p);
     }
