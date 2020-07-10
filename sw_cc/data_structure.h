@@ -109,6 +109,7 @@ struct Net{
     void remove_dangling_wire();
     // construct MST to remove cycle in branch_nodes
     void remove_branch_cycle();
+    void push_edge_in_queue(std::priority_queue<TwoPinNet, std::vector<TwoPinNet>, std::greater<TwoPinNet>>& frontier_edges);
     // merge degree 2 steiner node
     void merge_steiner_path(Point p);
 };
