@@ -81,7 +81,6 @@ struct Net{
     int minRoutingLayer;
     std::vector<std::pair<int,int>> pins;
     std::vector<std::pair<Point,Point>> routingSegments;
-    std::vector<TwoPinNet> routingTree;
     std::unordered_map <Point,TreeNode,MyHashFunction> branch_nodes;
     
     void convert_seg_to_2pin(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
@@ -96,7 +95,8 @@ struct Net{
         std::unordered_set <Point,MyHashFunction>& pin_map, 
         std::unordered_set <Point,MyHashFunction>& steiner_map,
         Point start_p,
-        std::map<std::tuple<int,int,int>, std::vector<std::pair<int,int>>>& localNets);
+        std::map<std::tuple<int,int,int>, std::vector<std::pair<int,int>>>& localNets,
+        std::vector<TwoPinNet>& routingTree);
     Point return_next_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
     bool check_map_legal(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
     bool check_map_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p, Point dir);
@@ -104,8 +104,8 @@ struct Net{
         Point now_p, Point dir);
     void decrese_degree_middle_p(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
         Point now_p, Point dir);
-    void print_two_pins();
-    void construct_branch_nodes();
+    void print_two_pins(std::vector<TwoPinNet>& routingTree);
+    void construct_branch_nodes(std::vector<TwoPinNet>& routingTree);
     void remove_dangling_wire();
     // construct MST to remove cycle in branch_nodes
     void remove_branch_cycle();
@@ -145,6 +145,7 @@ public:
     void del_seg_demand(std::pair<Point,Point> segment, int netIndex);
     void del_seg_demand_from_graph(int x, int y, int z, int netIndex);
     void construct_2pin_nets();
+    void move_cells_force();
     Tree RSMT(std::vector<int> x, std::vector<int> y);
     int row, column, layer;
     int maxCellMove;
