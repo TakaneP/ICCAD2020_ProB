@@ -1,7 +1,8 @@
 #include<bits/stdc++.h>
-#include "data_structure.h"
 #ifndef PARSER
 #define PARSER
+
+class RoutingGraph;
 
 class Parser{
 public:
