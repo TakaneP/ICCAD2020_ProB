@@ -622,20 +622,46 @@ Tree RoutingGraph::RSMT(vector<int> x, vector<int> y) {
 }
 
 void RoutingGraph::move_cells_force() {
+    int c=0;
     for(auto& cell : cellInstances) {
-        int net_idx;
-        Pin pin;
-        Net& net = nets[net_idx];
-        Point cell_p(cell.x, cell.y, pin.layer);
+        cout << "cell " << c++ << endl;
+        if(cell.movable == 0)
+            continue;
         // move cell to free space
-        int left=0, right=0, up=0, down=0;
-        for(int n=0; n<cell.connectedNets.size(); n++) {
-            Net& neighbor_net = nets[n];
-            for(auto& neighbor : neighbor_net.branch_nodes[cell_p].neighbors) {
-
+        vector<int> x_series, y_series;
+        for(auto& pin : cell.pins) {
+            // find optimal region
+            Net& neighbor_net = nets[pin.connectedNet];     
+            int min_x=INT_MAX, max_x=0, min_y=INT_MAX, max_y=0;       
+            for(auto& net_pin : neighbor_net.pins) {
+                int cell_idx = net_pin.first;
+                int c_x = cellInstances[cell_idx].x;
+                int c_y = cellInstances[cell_idx].y;
+                if(c_x == cell.x && c_y == cell.y)
+                    continue;  
+                min_x = (min_x > c_x) ? c_x : min_x;
+                max_x = (max_x < c_x) ? c_x : max_x;
+                min_y = (min_y > c_y) ? c_y : min_y;
+                max_y = (max_y < c_y) ? c_y : max_y;
             }
-            
+            x_series.push_back(min_x);
+            x_series.push_back(max_x);
+            y_series.push_back(min_y);
+            y_series.push_back(max_y);
         }
+        // no optimal region
+        if(x_series.size()%2 && y_series.size()%2)
+            continue;
+        sort(x_series.begin(), x_series.end());
+        sort(y_series.begin(), y_series.end());
+        int opt_x_left = x_series[x_series.size()/2];
+        int opt_x_right = x_series[x_series.size()/2+1];
+        int opt_y_left = y_series[y_series.size()/2];
+        int opt_y_right = y_series[y_series.size()/2+1];
+        // no optimal region
+        if(opt_x_left == opt_x_right && opt_y_left == opt_y_right)
+            continue;
+        cout << opt_x_left << " " << opt_y_left << " " << opt_x_right << " " << opt_y_right << endl;
     }
 }
 
