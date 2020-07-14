@@ -53,11 +53,12 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 1);
     // construct 2pin net
     Point start = *pin_map.begin();
-    traverse_passing_map(degreeMap, pin_map, steiner_map, start, localNets);
+    std::vector<TwoPinNet> routingTree;
+    traverse_passing_map(degreeMap, pin_map, steiner_map, start, localNets, routingTree);
     // reset passingMap
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 0);
     //print_two_pins();
-    construct_branch_nodes();
+    construct_branch_nodes(routingTree);
     remove_dangling_wire();
     //print_two_pins();
     remove_branch_cycle();
@@ -121,7 +122,8 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
         unordered_set <Point,MyHashFunction>& pin_map, 
         unordered_set <Point,MyHashFunction>& steiner_map, 
         Point start_p,
-        map<tuple<int,int,int>, vector<pair<int,int>>>& localNets
+        map<tuple<int,int,int>, vector<pair<int,int>>>& localNets,
+        std::vector<TwoPinNet>& routingTree
         ) {
     bool is_pin = (pin_map.find(start_p) != pin_map.end());
     while(true) {  // for 6 dir     
@@ -158,8 +160,8 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
                 else
                     segment.n2.type = (is_pin) ? 1 : 0;
                 if(!(segment.n1.p == segment.n2.p))
-                    this->routingTree.push_back(segment);              
-                traverse_passing_map(degreeMap, pin_map, steiner_map, now_p, localNets);
+                    routingTree.push_back(segment);              
+                traverse_passing_map(degreeMap, pin_map, steiner_map, now_p, localNets, routingTree);
                 break;
             }
             else {
@@ -179,7 +181,7 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
                         // redundant net
                         segment.n2.p = now_p;
                         segment.n2.type = -1;
-                        this->routingTree.push_back(segment); 
+                        routingTree.push_back(segment); 
                         break;
                     } else {
                         decrese_degree_endpoint(degreeMap, now_p, Point(-dir.x, -dir.y, -dir.z));
@@ -263,8 +265,8 @@ void Net::decrese_degree_middle_p(std::vector<std::vector<std::vector<DegreeNode
     }
 }
 
-void Net::print_two_pins() {
-    for(auto twopin : this->routingTree) {
+void Net::print_two_pins(std::vector<TwoPinNet>& routingTree) {
+    for(auto twopin : routingTree) {
         cout << endl << twopin.n1.p << " " << twopin.n1.type << " to " << 
         twopin.n2.p << " " << twopin.n2.type << "\n";
         for(auto path : twopin.paths) {
@@ -285,9 +287,9 @@ void Net::print_two_pins() {
     }  
 }
 
-void Net::construct_branch_nodes() {
+void Net::construct_branch_nodes(std::vector<TwoPinNet>& routingTree) {
     // construct neighbor relation
-    for(auto& twopin : this->routingTree) {
+    for(auto& twopin : routingTree) {
         Point p1 = twopin.n1.p;
         Point p2 = twopin.n2.p;
         auto p1_ptr = branch_nodes.find(p1);
@@ -617,6 +619,50 @@ Tree RoutingGraph::RSMT(vector<int> x, vector<int> y) {
     flutewl = flute_wl(d, x_arr, y_arr, ACCURACY);
     printf("FLUTE wirelength (without RSMT construction) = %d\n", flutewl);
     return flutetree;
+}
+
+void RoutingGraph::move_cells_force() {
+    int c=0;
+    for(auto& cell : cellInstances) {
+        cout << "cell " << c++ << endl;
+        if(cell.movable == 0)
+            continue;
+        // move cell to free space
+        vector<int> x_series, y_series;
+        for(auto& pin : cell.pins) {
+            // find optimal region
+            Net& neighbor_net = nets[pin.connectedNet];     
+            int min_x=INT_MAX, max_x=0, min_y=INT_MAX, max_y=0;       
+            for(auto& net_pin : neighbor_net.pins) {
+                int cell_idx = net_pin.first;
+                int c_x = cellInstances[cell_idx].x;
+                int c_y = cellInstances[cell_idx].y;
+                if(c_x == cell.x && c_y == cell.y)
+                    continue;  
+                min_x = (min_x > c_x) ? c_x : min_x;
+                max_x = (max_x < c_x) ? c_x : max_x;
+                min_y = (min_y > c_y) ? c_y : min_y;
+                max_y = (max_y < c_y) ? c_y : max_y;
+            }
+            x_series.push_back(min_x);
+            x_series.push_back(max_x);
+            y_series.push_back(min_y);
+            y_series.push_back(max_y);
+        }
+        // no optimal region
+        if(x_series.size()%2 && y_series.size()%2)
+            continue;
+        sort(x_series.begin(), x_series.end());
+        sort(y_series.begin(), y_series.end());
+        int opt_x_left = x_series[x_series.size()/2];
+        int opt_x_right = x_series[x_series.size()/2+1];
+        int opt_y_left = y_series[y_series.size()/2];
+        int opt_y_right = y_series[y_series.size()/2+1];
+        // no optimal region
+        if(opt_x_left == opt_x_right && opt_y_left == opt_y_right)
+            continue;
+        cout << opt_x_left << " " << opt_y_left << " " << opt_x_right << " " << opt_y_right << endl;
+    }
 }
 
 void TwoPinNet::update_wire_length() {
