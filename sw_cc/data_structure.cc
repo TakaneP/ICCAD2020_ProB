@@ -625,7 +625,18 @@ Tree RoutingGraph::RSMT(vector<int> x, vector<int> y) {
 void RoutingGraph::move_cells_force() {
     for(auto& cell : cellInstances) {
         int net_idx;
+        Pin pin;
         Net& net = nets[net_idx];
+        Point cell_p(cell.x, cell.y, pin.layer);
+        // move cell to free space
+        int left=0, right=0, up=0, down=0;
+        for(int n=0; n<cell.connectedNets.size(); n++) {
+            Net& neighbor_net = nets[n];
+            for(auto& neighbor : neighbor_net.branch_nodes[cell_p].neighbors) {
+
+            }
+            
+        }
     }
 }
 
