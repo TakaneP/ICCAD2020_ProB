@@ -39,7 +39,7 @@ void output_file(RoutingGraph* routingGraph, string outputFile) {
             int cellidx = net.pins[0].first;
             int pin = net.pins[0].second;
             Cell& cell = routingGraph->cellInstances[cellidx];
-            int pinLayer = routingGraph->masterCells[cell.masterCell].pins[pin].layer;
+            int pinLayer = cell.pins[pin].layer;
             if(net.minRoutingLayer > pinLayer) {
                 storeSegments[i].push_back({Point(cell.x, cell.y, pinLayer), Point(cell.x, cell.y, net.minRoutingLayer)});
                 numRoutes++;

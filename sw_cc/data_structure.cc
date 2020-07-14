@@ -27,7 +27,7 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
         int cell_idx = pin.first;
         int pin_idx = pin.second;
         auto& cell = cellInstances[cell_idx];
-        int layer = masterCells[cell.masterCell].pins[pin_idx].layer;
+        int layer = cell.pins[pin_idx].layer;
         Point p(cell.x,cell.y,layer);
         localNets[{cell.x, cell.y, layer}].push_back({cell_idx, pin_idx});
         pin_map.emplace(cell.x,cell.y,layer);
@@ -522,7 +522,7 @@ void RoutingGraph::add_cell(int x, int y, int cellIndex) {
     cellInstances[cellIndex].x = x;
     cellInstances[cellIndex].y = y;
     //Add demand into graph
-    add_cell_demand_into_graph(x, y, cellInstances[cellIndex].masterCell);
+    add_cell_demand_into_graph(x, y, cellInstances[cellIndex].mcType);
 }
 
 void RoutingGraph::del_cell(int cellIndex) {
@@ -532,25 +532,27 @@ void RoutingGraph::del_cell(int cellIndex) {
     //Del from placement
     placement[x][y].erase(cellIndex);
     //Del demand from graph
-    del_cell_demand_from_graph(x, y, cellInstances[cellIndex].masterCell);
-    for(auto net_index : cellInstances[cellIndex].connectedNets) {
-        del_net_from_graph(net_index);
+    del_cell_demand_from_graph(x, y, cellInstances[cellIndex].mcType);
+    for(auto pin : cellInstances[cellIndex].pins) {
+        int netIndex = pin.connectedNet;
+        if(netIndex != -1) del_net_from_graph(x, y, pin.layer, netIndex);
     }
 }
 
 void RoutingGraph::add_net_demand_into_graph(int x, int y, int z, int netIndex) {
-    auto hint = grids[x][y][z].passingNets.find(netIndex);
-    if(hint == grids[x][y][z].passingNets.end()) {
+    if(grids[x][y][z].passingNets[netIndex]++ == 0) //every pin and segment contribute 1 to passingNet
         grids[x][y][z].demand++;
-        grids[x][y][z].passingNets.insert(hint, netIndex);
-    }
 }
-void RoutingGraph::del_net_from_graph(int netIndex) {
-    auto& net = nets[netIndex];
-    while(net.routingSegments.size() > 0) {
-        auto segment = net.routingSegments.back();
-        del_seg_demand(segment, netIndex);
-        net.routingSegments.pop_back();
+void RoutingGraph::del_net_from_graph(int x, int y, int z, int netIndex) {
+    if(--grids[x][y][z].passingNets[netIndex] == 0)
+        grids[x][y][z].demand--;
+    else {
+        auto& net = nets[netIndex];
+        while(net.routingSegments.size() > 0) {
+            auto segment = net.routingSegments.back();
+            del_seg_demand(segment, netIndex);
+            net.routingSegments.pop_back();
+        }
     }
 }
 
@@ -578,11 +580,8 @@ void RoutingGraph::del_seg_demand(std::pair<Point,Point> segment, int netIndex) 
 }
 
 void RoutingGraph::del_seg_demand_from_graph(int x, int y, int z, int netIndex) {
-    auto hint = grids[x][y][z].passingNets.find(netIndex);
-    if(hint != grids[x][y][z].passingNets.end()) {
+    if(--grids[x][y][z].passingNets[netIndex] == 0)
         grids[x][y][z].demand--;
-        grids[x][y][z].passingNets.erase(hint);
-    }
 }
 
 void RoutingGraph::construct_2pin_nets() {

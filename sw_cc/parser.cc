@@ -115,7 +115,8 @@ void Parser::run(void) {
         MCtype = get_postfix_int(type,2); //MC
         fin >> rowPos >> colPos >> type;
         bool mov = (type[0] == 'M');
-        graph.cellInstances[i] = Cell(MCtype, mov, --rowPos, --colPos);
+        MasterCell& m = graph.masterCells[MCtype]; 
+        graph.cellInstances[i] = Cell(m.pins, m.blockages, mov, --rowPos, --colPos, MCtype);
         graph.add_cell(rowPos, colPos, i);
     }
     //Net
@@ -133,10 +134,9 @@ void Parser::run(void) {
             int cellIndex = get_postfix_int(cellIns, 1);
             int pinIndex = get_postfix_int(pinName, 1);
             graph.nets[i].pins.push_back({cellIndex, pinIndex});
-            graph.cellInstances[cellIndex].connectedNets.insert(i);
             Cell& cell = graph.cellInstances[cellIndex];
-            MasterCell& masterCell = graph.masterCells[cell.masterCell];
-            graph.add_net_demand_into_graph(cell.x, cell.y, masterCell.pins[pinIndex].layer, i);
+            cell.pins[pinIndex].connectedNet = i;
+            graph.add_net_demand_into_graph(cell.x, cell.y, cell.pins[pinIndex].layer, i);
         }
     }
     //Routing segments
