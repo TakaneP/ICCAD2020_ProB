@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/bin/bash -x
 if [ $# != 2 ]; then
     echo "Usage: ./run_test <evaluator path> <case path>"
     exit 1
 fi 
-make clean
-make
-./parser $2 >test
+#make clean
+#make
+./router $2 >test
 chmod 770 testParser.py
 ./testParser.py $1 $2 2>err
 rm test err

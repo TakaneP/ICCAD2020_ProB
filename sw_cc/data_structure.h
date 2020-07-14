@@ -14,12 +14,15 @@ struct TreeNode;
 struct Node;
 
 struct Pin{
-    Pin() {}
-    Pin(int l): layer(l) {}
+    Pin(): layer(-1), connectedNet(-1) {}
+    Pin(int l): layer(l), connectedNet(-1) {}
     int layer;
+    int connectedNet;
 };
 
 struct MasterCell{
+    MasterCell() {}
+    MasterCell(std::vector<Pin>& p, std::unordered_map<int, int>& b): pins(p), blockages(b) {}
     std::vector<Pin> pins;
     std::unordered_map<int, int> blockages; //layer's demand sum
 };
@@ -77,13 +80,16 @@ struct TreeNode{
     std::vector<std::pair<Point,TwoPinNet>> neighbors;
 };
 
+struct Gcell;
+
 struct Net{
+    Net() {}
+    int netId;
     int minRoutingLayer;
-    std::vector<std::pair<int,int>> pins;
+    std::vector<std::pair<int,int>> pins; //First: Cell Instance  Second: Pin
     std::vector<std::pair<Point,Point>> routingSegments;
     std::vector<TwoPinNet> routingTree;
     std::unordered_map <Point,TreeNode,MyHashFunction> branch_nodes;
-    
     void convert_seg_to_2pin(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
         std::vector<Cell>& cellInstances,
         std::vector<MasterCell>& masterCells
@@ -112,15 +118,24 @@ struct Net{
     void push_edge_in_queue(std::priority_queue<TwoPinNet, std::vector<TwoPinNet>, std::greater<TwoPinNet>>& frontier_edges);
     // merge degree 2 steiner node
     void merge_steiner_path(Point p);
+    void del_net_from_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
+    void del_seg_demand(std::pair<Point,Point> segment, std::vector<std::vector<std::vector<Gcell>>>& grids);
+    void del_seg_demand_from_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
+    void del_twoPinNet_from_graph(TwoPinNet& twoPinNet, std::vector<std::vector<std::vector<Gcell>>>& grids);
+    void add_net_demand_into_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
 };
 
-struct Cell{
+struct Cell : public MasterCell{
     Cell() {}
-    Cell(int mc, bool m, int _x, int _y): masterCell(mc), movable(m), x(_x), y(_y) {}
-    int masterCell; 
+    Cell(std::vector<Pin>& p, std::unordered_map<int, int> b, bool m, int _x, int _y, int mc): MasterCell(p,b), movable(m), x(_x), y(_y), mcType(mc) {
+        originalX = x;
+        originalY = y;
+    }
+    int mcType;
     bool movable;
     int x,y;
-    std::unordered_set<int> connectedNets;    
+    int originalX, originalY;
+    //std::unordered_set<int> connectedNets;    
 };
 
 struct Gcell{
@@ -129,7 +144,7 @@ struct Gcell{
     int get_remaining(void) {return capacity - demand;}
     int capacity;
     int demand;
-    std::unordered_set<int> passingNets;
+    std::unordered_map<int, int> passingNets; //key: netId, value: sum of the number of pins and the number of segments in this Gcell for this net
 };
 
 class RoutingGraph{
@@ -140,16 +155,18 @@ public:
     void del_cell(int cellIndex);
     void add_cell_demand_into_graph(int x, int y, int MCtype);
     void del_cell_demand_from_graph(int x, int y, int MCtype);
-    void add_net_demand_into_graph(int x, int y, int z, int netIndex);
-    void del_net_from_graph(int netIndex);
-    void del_seg_demand(std::pair<Point,Point> segment, int netIndex);
-    void del_seg_demand_from_graph(int x, int y, int z, int netIndex);
+    //void add_net_demand_into_graph(int x, int y, int z, int netIndex);
+    //void del_net_from_graph(int x, int y, int z, int netIndex);
+    //void del_seg_demand(std::pair<Point,Point> segment, int netIndex);
+    //void del_seg_demand_from_graph(int x, int y, int z, int netIndex);
+    //void del_twoPinNet_from_graph(TwoPinNet& twoPinNet);
     void construct_2pin_nets();
     Tree RSMT(std::vector<int> x, std::vector<int> y);
     int row, column, layer;
     int maxCellMove;
     int usedCellMove; //number of moved cells
     SegmentTree* segmentTree;
+    int get_edge_cost(Point& from, Point& to);
     std::vector<std::vector<std::unordered_map<int,int>>> cellCount; //for extra demand calculation
     std::vector<MasterCell> masterCells;
     std::vector<Cell> cellInstances;

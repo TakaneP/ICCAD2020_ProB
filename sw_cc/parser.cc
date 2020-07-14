@@ -115,13 +115,15 @@ void Parser::run(void) {
         MCtype = get_postfix_int(type,2); //MC
         fin >> rowPos >> colPos >> type;
         bool mov = (type[0] == 'M');
-        graph.cellInstances[i] = Cell(MCtype, mov, --rowPos, --colPos);
+        MasterCell& m = graph.masterCells[MCtype]; 
+        graph.cellInstances[i] = Cell(m.pins, m.blockages, mov, --rowPos, --colPos, MCtype);
         graph.add_cell(rowPos, colPos, i);
     }
     //Net
     fin >> type >> value;
     graph.nets.resize(value);
     for(int i = 0; i < value; ++i) {
+        graph.nets[i].netId = i;
         int pinNum;
         fin >> type >> type >> pinNum >> type;
         graph.nets[i].minRoutingLayer = (type[0] == 'N')? 0:get_postfix_int(type,1);
@@ -133,10 +135,9 @@ void Parser::run(void) {
             int cellIndex = get_postfix_int(cellIns, 1);
             int pinIndex = get_postfix_int(pinName, 1);
             graph.nets[i].pins.push_back({cellIndex, pinIndex});
-            graph.cellInstances[cellIndex].connectedNets.insert(i);
             Cell& cell = graph.cellInstances[cellIndex];
-            MasterCell& masterCell = graph.masterCells[cell.masterCell];
-            graph.add_net_demand_into_graph(cell.x, cell.y, masterCell.pins[pinIndex].layer, i);
+            cell.pins[pinIndex].connectedNet = i;
+            graph.nets[i].add_net_demand_into_graph(cell.x, cell.y, cell.pins[pinIndex].layer, graph.grids);
         }
     }
     //Routing segments
@@ -158,17 +159,17 @@ void Parser::run(void) {
                                                         Point(endRow, endColumn, endLayer)});
         if(startRow != endRow) {
             for(int j = startRow; j <= endRow; j++) {
-                graph.add_net_demand_into_graph(j, startColumn, startLayer, netIndex);
+                graph.nets[netIndex].add_net_demand_into_graph(j, startColumn, startLayer, graph.grids);
             }
         }
         else if(startColumn != endColumn) {
             for(int j = startColumn; j <= endColumn; j++) {
-                graph.add_net_demand_into_graph(startRow, j, startLayer, netIndex);
+                graph.nets[netIndex].add_net_demand_into_graph(startRow, j, startLayer, graph.grids);
             }
         }
         else if(startLayer != endLayer) {
             for(int j = startLayer; j <= endLayer; j++) {
-                graph.add_net_demand_into_graph(startRow, startColumn, j, netIndex);
+                graph.nets[netIndex].add_net_demand_into_graph(startRow, startColumn, j, graph.grids);
             }
         }
     }
