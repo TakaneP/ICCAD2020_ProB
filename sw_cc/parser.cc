@@ -123,6 +123,7 @@ void Parser::run(void) {
     fin >> type >> value;
     graph.nets.resize(value);
     for(int i = 0; i < value; ++i) {
+        graph.nets[i].netId = i;
         int pinNum;
         fin >> type >> type >> pinNum >> type;
         graph.nets[i].minRoutingLayer = (type[0] == 'N')? 0:get_postfix_int(type,1);
@@ -136,7 +137,7 @@ void Parser::run(void) {
             graph.nets[i].pins.push_back({cellIndex, pinIndex});
             Cell& cell = graph.cellInstances[cellIndex];
             cell.pins[pinIndex].connectedNet = i;
-            graph.add_net_demand_into_graph(cell.x, cell.y, cell.pins[pinIndex].layer, i);
+            graph.nets[i].add_net_demand_into_graph(cell.x, cell.y, cell.pins[pinIndex].layer, graph.grids);
         }
     }
     //Routing segments
@@ -156,21 +157,21 @@ void Parser::run(void) {
         else if(startLayer > endLayer) swap(startLayer, endLayer);
         graph.nets[netIndex].routingSegments.push_back({Point( startRow, startColumn, startLayer), 
                                                         Point(endRow, endColumn, endLayer)});
-        if(startRow != endRow) {
+        /*if(startRow != endRow) {
             for(int j = startRow; j <= endRow; j++) {
-                graph.add_net_demand_into_graph(j, startColumn, startLayer, netIndex);
+                graph.nets[netIndex].add_net_demand_into_graph(j, startColumn, startLayer, graph.grids);
             }
         }
         else if(startColumn != endColumn) {
             for(int j = startColumn; j <= endColumn; j++) {
-                graph.add_net_demand_into_graph(startRow, j, startLayer, netIndex);
+                graph.nets[netIndex].add_net_demand_into_graph(startRow, j, startLayer, graph.grids);
             }
         }
         else if(startLayer != endLayer) {
             for(int j = startLayer; j <= endLayer; j++) {
-                graph.add_net_demand_into_graph(startRow, startColumn, j, netIndex);
+                graph.nets[netIndex].add_net_demand_into_graph(startRow, startColumn, j, graph.grids);
             }
-        }
+        }*/
     }
     graph.segmentTree->build_ini();
 	fin.close();
