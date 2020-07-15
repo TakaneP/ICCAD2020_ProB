@@ -697,6 +697,11 @@ Tree RoutingGraph::RSMT(vector<int> x, vector<int> y) {
     return flutetree;
 }
 
+bool sortbysec(const pair<Point,int> &a, const pair<Point,int> &b) 
+{ 
+    return (a.second > b.second); 
+} 
+
 void RoutingGraph::move_cells_force() {
     int c=0;
     for(auto& cell : cellInstances) {
@@ -738,6 +743,75 @@ void RoutingGraph::move_cells_force() {
         if(opt_x_left == opt_x_right && opt_y_left == opt_y_right)
             continue;
         cout << opt_x_left << " " << opt_y_left << " " << opt_x_right << " " << opt_y_right << endl;
+        vector<pair<Point,int>> cells_pos;
+        for(int x=opt_x_left; x<=opt_x_right; x++) {
+            for(int y=opt_y_left; y<=opt_y_right; y++) {
+                int profit = check_cell_cost_in_graph(x, y, cell.mcType);
+                cells_pos.emplace_back(Point(x,y,0), profit);
+            }
+        }
+        sort(cells_pos.begin(), cells_pos.end(), sortbysec);
+        for(int n=0; n<cells_pos.size(); n++) {
+            cout << "(" << cells_pos[n].first.x << ", " << cells_pos[n].first.y << ") cost: " << cells_pos[n].second << endl;
+        }
+    }
+}
+
+int RoutingGraph::check_cell_cost_in_graph(int x, int y, int MCtype) {
+    vector<int> layer_remain(layer);
+    MasterCell& masterCell = masterCells[MCtype];
+    // initial remain
+    for(int n=0; n<layer_remain.size(); n++) {
+        layer_remain[n] = grids[x][y][n].capacity - grids[x][y][n].demand;
+    }
+    // add blockage demand
+    for(auto it = masterCell.blockages.begin(); it != masterCell.blockages.end(); ++it) {
+        layer_remain[it->first] -= it->second;
+    }
+    // Add sameGGrid rule
+    for(auto it = sameGGrid[MCtype].begin(); it != sameGGrid[MCtype].end(); ++it) {
+        int MCtype2 = it->first;
+        int originalPairCnt = min(cellCount[x][y][MCtype], cellCount[x][y][MCtype2]);
+        int afterPairCnt = min(cellCount[x][y][MCtype] + 1, cellCount[x][y][MCtype2]);
+        for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
+            layer_remain[_it->first] -= _it->second * (afterPairCnt - originalPairCnt);
+        }	
+    }
+    // Add adjHGGrid rule
+    for(auto it = adjHGGrid[MCtype].begin(); it != adjHGGrid[MCtype].end(); ++it) {
+        int MCtype2 = it->first, preOriginalPairCnt = 0, preAfterPairCnt = 0, nxtOriginalPairCnt = 0, nxtAfterPairCnt = 0;
+        // check left cell demand
+        if(y > 0) {
+            preOriginalPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype]);
+            preAfterPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype] + 1);
+            for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
+                int new_demand = grids[x][y-1][_it->first].demand + _it->second * (preAfterPairCnt - preOriginalPairCnt);
+                if(grids[x][y-1][_it->first].capacity < new_demand) {
+                    return 0;
+                }
+            }
+        }
+        // check right cell demand
+        if(y < (column - 1)) {
+            nxtOriginalPairCnt = min(cellCount[x][y+1][MCtype2], cellCount[x][y][MCtype]);
+            nxtAfterPairCnt = min(cellCount[x][y+1][MCtype2], cellCount[x][y][MCtype] + 1);
+            for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
+                int new_demand = grids[x][y+1][_it->first].demand + _it->second * (nxtAfterPairCnt - nxtOriginalPairCnt);
+                if(grids[x][y+1][_it->first].capacity < new_demand) {
+                    return 0;
+                }
+            }
+        }
+        // Update current
+        for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
+            layer_remain[_it->first] -= _it->second * (preAfterPairCnt - preOriginalPairCnt + nxtAfterPairCnt - nxtOriginalPairCnt);
+        }
+        // calculate profit
+        int profit = 0;
+        for(int n=0; n<layer_remain.size(); n++) {
+            profit += layer_remain[n];
+        }
+        return profit;
     }
 }
 

@@ -161,6 +161,8 @@ public:
     void del_cell_neighbor(int cellIndex);
     void construct_2pin_nets();
     void move_cells_force();
+    // return cell profit after put in cell
+    int check_cell_cost_in_graph(int x, int y, int MCtype);
     Tree RSMT(std::vector<int> x, std::vector<int> y);
     int row, column, layer;
     int maxCellMove;
