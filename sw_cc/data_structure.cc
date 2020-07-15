@@ -14,7 +14,8 @@ size_t MyHashFunction::operator()(const Point& p) const {
 
 void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap, 
         std::vector<Cell>& cellInstances, 
-        std::vector<MasterCell>& masterCells
+        std::vector<MasterCell>& masterCells,
+        vector<vector<vector<Gcell>>>& grids
         ) {
     // construct pin set 
     unordered_set <Point,MyHashFunction> pin_map;
@@ -53,14 +54,15 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 1);
     // construct 2pin net
     Point start = *pin_map.begin();
-    traverse_passing_map(degreeMap, pin_map, steiner_map, start, localNets);
+    std::vector<TwoPinNet> routingTree;
+    traverse_passing_map(degreeMap, pin_map, steiner_map, start, localNets, routingTree, grids);
     // reset passingMap
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 0);
     //print_two_pins();
-    construct_branch_nodes();
-    remove_dangling_wire();
+    construct_branch_nodes(routingTree);
+    //remove_dangling_wire();
     //print_two_pins();
-    remove_branch_cycle();
+    //remove_branch_cycle();
 }
 
 void Net::set_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, std::vector<Cell>& cellInstances, std::vector<MasterCell>& masterCells, 
@@ -121,7 +123,9 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
         unordered_set <Point,MyHashFunction>& pin_map, 
         unordered_set <Point,MyHashFunction>& steiner_map, 
         Point start_p,
-        map<tuple<int,int,int>, vector<pair<int,int>>>& localNets
+        map<tuple<int,int,int>, vector<pair<int,int>>>& localNets,
+        std::vector<TwoPinNet>& routingTree,
+        vector<vector<vector<Gcell>>>& grids
         ) {
     bool is_pin = (pin_map.find(start_p) != pin_map.end());
     while(true) {  // for 6 dir     
@@ -129,6 +133,7 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
         if(dir == Point(-1,-1,-1))
             break;
         // -dir because delete outgoing edge
+        add_net_demand_into_graph(start_p.x, start_p.y, start_p.z, grids);
         decrese_degree_endpoint(degreeMap, start_p, Point(-dir.x, -dir.y, -dir.z));
         Point now_p = start_p;
         TwoPinNet segment;
@@ -147,6 +152,7 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
             bool is_steiner = steiner_map.find(now_p) != steiner_map.end();
             if(is_pin || is_steiner) {
                 // create 2pin
+                add_net_demand_into_graph(now_p.x, now_p.y, now_p.z, grids);
                 decrese_degree_endpoint(degreeMap, now_p, dir);
                 path.second = now_p;
                 segment.paths.push_back(path);
@@ -158,18 +164,20 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
                 else
                     segment.n2.type = (is_pin) ? 1 : 0;
                 if(!(segment.n1.p == segment.n2.p))
-                    this->routingTree.push_back(segment);              
-                traverse_passing_map(degreeMap, pin_map, steiner_map, now_p, localNets);
+                    routingTree.push_back(segment);              
+                traverse_passing_map(degreeMap, pin_map, steiner_map, now_p, localNets, routingTree, grids);
                 break;
             }
             else {
                 // keep propogate
                 Point next_p = now_p + dir;            
                 if(check_map_legal(degreeMap, next_p) && check_map_dir(degreeMap, now_p, dir)) {
+                    add_net_demand_into_graph(now_p.x, now_p.y, now_p.z, grids);
                     decrese_degree_middle_p(degreeMap, now_p, dir);
                 }
                 else {
                     // create segment path
+                    add_net_demand_into_graph(now_p.x, now_p.y, now_p.z, grids);
                     decrese_degree_endpoint(degreeMap, now_p, dir);
                     path.second = now_p;
                     segment.paths.push_back(path);
@@ -179,9 +187,10 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
                         // redundant net
                         segment.n2.p = now_p;
                         segment.n2.type = -1;
-                        this->routingTree.push_back(segment); 
+                        routingTree.push_back(segment); 
                         break;
                     } else {
+                        add_net_demand_into_graph(now_p.x, now_p.y, now_p.z, grids);
                         decrese_degree_endpoint(degreeMap, now_p, Point(-dir.x, -dir.y, -dir.z));
                     }                   
                 }
@@ -263,8 +272,8 @@ void Net::decrese_degree_middle_p(std::vector<std::vector<std::vector<DegreeNode
     }
 }
 
-void Net::print_two_pins() {
-    for(auto twopin : this->routingTree) {
+void Net::print_two_pins(std::vector<TwoPinNet>& routingTree) {
+    for(auto twopin : routingTree) {
         cout << endl << twopin.n1.p << " " << twopin.n1.type << " to " << 
         twopin.n2.p << " " << twopin.n2.type << "\n";
         for(auto path : twopin.paths) {
@@ -285,9 +294,9 @@ void Net::print_two_pins() {
     }  
 }
 
-void Net::construct_branch_nodes() {
+void Net::construct_branch_nodes(std::vector<TwoPinNet>& routingTree) {
     // construct neighbor relation
-    for(auto& twopin : this->routingTree) {
+    for(auto& twopin : routingTree) {
         Point p1 = twopin.n1.p;
         Point p2 = twopin.n2.p;
         auto p1_ptr = branch_nodes.find(p1);
@@ -543,14 +552,29 @@ void Net::add_net_demand_into_graph(int x, int y, int z, vector<vector<vector<Gc
     if(grids[x][y][z].passingNets[netId]++ == 0) //every pin and segment contribute 1 to passingNet
         grids[x][y][z].demand++;
 }
+
 void Net::del_net_from_graph(int x, int y, int z, vector<vector<vector<Gcell>>>& grids) {
-    if(--grids[x][y][z].passingNets[netId] == 0)
+    if(--grids[x][y][z].passingNets[netId] == 0) //every pin automatically contributes 1 to passingNets
         grids[x][y][z].demand--;
-    else { //TODO: Update this
-        while(routingSegments.size() > 0) {
-            auto segment = routingSegments.back();
-            del_seg_demand(segment, grids);
-            routingSegments.pop_back();
+    else {
+        auto it = branch_nodes.begin();
+        while(it != branch_nodes.end()) {
+            const Point& point = it->first;
+            TreeNode& treeNode = it->second;
+            for(auto _it = treeNode.neighbors.begin(); _it != treeNode.neighbors.end(); _it++) {
+                Point& neighbor = _it->first;
+                TwoPinNet& twoPinNet = _it->second;
+                TreeNode& neighborTreeNode = branch_nodes[neighbor];
+                del_twoPinNet_from_graph(twoPinNet, grids);
+                //delete neighbor reverse edge
+                for(auto _iit = neighborTreeNode.neighbors.begin(); _iit != neighborTreeNode.neighbors.end(); ++_iit) {
+                    if(_iit->first == point) {
+                        neighborTreeNode.neighbors.erase(_iit);
+                        break;
+                    }
+                }
+            }
+            it = branch_nodes.erase(it);
         }
     }
 }
@@ -558,6 +582,13 @@ void Net::del_net_from_graph(int x, int y, int z, vector<vector<vector<Gcell>>>&
 void Net::del_seg_demand(std::pair<Point,Point> segment, vector<vector<vector<Gcell>>>& grids) {
     int startRow = segment.first.x, startColumn = segment.first.y, startLayer = segment.first.z;
     int endRow = segment.second.x, endColumn = segment.second.y, endLayer = segment.second.z;
+    if(startRow > endRow) 
+        swap(startRow, endRow);
+    if(startColumn > endColumn)
+        swap(startColumn, endColumn);
+    if(startLayer > endLayer)
+        swap(startLayer, endLayer);
+
     // handle vertical segment
     if(startRow != endRow) {
         for(int j = startRow; j <= endRow; j++) {
@@ -584,9 +615,11 @@ void Net::del_seg_demand_from_graph(int x, int y, int z, vector<vector<vector<Gc
 }
 
 void Net::del_twoPinNet_from_graph(TwoPinNet& twoPinNet, vector<vector<vector<Gcell>>>& grids) {
-    Point& start = twoPinNet.n1.p;
-    Point& end = twoPinNet.n2.p;
-    del_seg_demand({start, end}, grids);
+    for(auto it = twoPinNet.paths.begin(); it != twoPinNet.paths.end(); ++it) {
+        Point& start = it->first;
+        Point& end = it->second;
+        del_seg_demand({start, end}, grids);
+    }
 }
 
 void RoutingGraph::construct_2pin_nets() {
@@ -602,8 +635,8 @@ void RoutingGraph::construct_2pin_nets() {
     // mark segment passing
     int a=0;
     for(auto& net : nets) {
-        cout << "\nNew net: " << a++ << "\n";
-        net.convert_seg_to_2pin(degreeMap, cellInstances, masterCells);
+        //cout << "\nNew net: " << a++ << "\n";
+        net.convert_seg_to_2pin(degreeMap, cellInstances, masterCells, grids);
     }
 
 }
@@ -624,6 +657,50 @@ Tree RoutingGraph::RSMT(vector<int> x, vector<int> y) {
     flutewl = flute_wl(d, x_arr, y_arr, ACCURACY);
     printf("FLUTE wirelength (without RSMT construction) = %d\n", flutewl);
     return flutetree;
+}
+
+void RoutingGraph::move_cells_force() {
+    int c=0;
+    for(auto& cell : cellInstances) {
+        cout << "cell " << c++ << endl;
+        if(cell.movable == 0)
+            continue;
+        // move cell to free space
+        vector<int> x_series, y_series;
+        for(auto& pin : cell.pins) {
+            // find optimal region
+            Net& neighbor_net = nets[pin.connectedNet];     
+            int min_x=INT_MAX, max_x=0, min_y=INT_MAX, max_y=0;       
+            for(auto& net_pin : neighbor_net.pins) {
+                int cell_idx = net_pin.first;
+                int c_x = cellInstances[cell_idx].x;
+                int c_y = cellInstances[cell_idx].y;
+                if(c_x == cell.x && c_y == cell.y)
+                    continue;  
+                min_x = (min_x > c_x) ? c_x : min_x;
+                max_x = (max_x < c_x) ? c_x : max_x;
+                min_y = (min_y > c_y) ? c_y : min_y;
+                max_y = (max_y < c_y) ? c_y : max_y;
+            }
+            x_series.push_back(min_x);
+            x_series.push_back(max_x);
+            y_series.push_back(min_y);
+            y_series.push_back(max_y);
+        }
+        // no optimal region
+        if(x_series.size()%2 && y_series.size()%2)
+            continue;
+        sort(x_series.begin(), x_series.end());
+        sort(y_series.begin(), y_series.end());
+        int opt_x_left = x_series[x_series.size()/2];
+        int opt_x_right = x_series[x_series.size()/2+1];
+        int opt_y_left = y_series[y_series.size()/2];
+        int opt_y_right = y_series[y_series.size()/2+1];
+        // no optimal region
+        if(opt_x_left == opt_x_right && opt_y_left == opt_y_right)
+            continue;
+        cout << opt_x_left << " " << opt_y_left << " " << opt_x_right << " " << opt_y_right << endl;
+    }
 }
 
 void TwoPinNet::update_wire_length() {

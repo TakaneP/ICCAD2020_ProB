@@ -157,7 +157,7 @@ void Parser::run(void) {
         else if(startLayer > endLayer) swap(startLayer, endLayer);
         graph.nets[netIndex].routingSegments.push_back({Point( startRow, startColumn, startLayer), 
                                                         Point(endRow, endColumn, endLayer)});
-        if(startRow != endRow) {
+        /*if(startRow != endRow) {
             for(int j = startRow; j <= endRow; j++) {
                 graph.nets[netIndex].add_net_demand_into_graph(j, startColumn, startLayer, graph.grids);
             }
@@ -171,7 +171,7 @@ void Parser::run(void) {
             for(int j = startLayer; j <= endLayer; j++) {
                 graph.nets[netIndex].add_net_demand_into_graph(startRow, startColumn, j, graph.grids);
             }
-        }
+        }*/
     }
     graph.segmentTree->build_ini();
 	fin.close();

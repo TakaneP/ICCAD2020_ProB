@@ -5,7 +5,7 @@ if [ $# != 2 ]; then
 fi 
 #make clean
 #make
-./router $2 >test
+../../sw_cc/router $2 >test
 chmod 770 testParser.py
 ./testParser.py $1 $2 2>err
 rm test err
