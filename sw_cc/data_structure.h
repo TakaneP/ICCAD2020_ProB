@@ -115,9 +115,9 @@ struct Net{
         Point now_p, Point dir);
     void print_two_pins(std::vector<TwoPinNet>& routingTree);
     void construct_branch_nodes(std::vector<TwoPinNet>& routingTree);
-    void remove_dangling_wire();
+    void remove_dangling_wire(std::vector<std::vector<std::vector<Gcell>>>& grids);
     // construct MST to remove cycle in branch_nodes
-    void remove_branch_cycle();
+    void remove_branch_cycle(std::vector<std::vector<std::vector<Gcell>>>& grids);
     void push_edge_in_queue(std::priority_queue<TwoPinNet, std::vector<TwoPinNet>, std::greater<TwoPinNet>>& frontier_edges);
     // merge degree 2 steiner node
     void merge_steiner_path(Point p);

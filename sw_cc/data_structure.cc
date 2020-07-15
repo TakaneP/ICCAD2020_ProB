@@ -60,9 +60,9 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 0);
     //print_two_pins();
     construct_branch_nodes(routingTree);
-    //remove_dangling_wire();
+    remove_dangling_wire(grids);
     //print_two_pins();
-    //remove_branch_cycle();
+    remove_branch_cycle(grids);
 }
 
 void Net::set_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, std::vector<Cell>& cellInstances, std::vector<MasterCell>& masterCells, 
@@ -314,7 +314,7 @@ void Net::construct_branch_nodes(std::vector<TwoPinNet>& routingTree) {
     }  
 }
 
-void Net::remove_dangling_wire() {
+void Net::remove_dangling_wire(vector<vector<vector<Gcell>>>& grids) {
     queue<Point> todo_points;
     for(auto& treenode : this->branch_nodes) {
         todo_points.push(treenode.first);
@@ -341,12 +341,13 @@ void Net::remove_dangling_wire() {
                 }
             }
             // remove dangling twopin-net
+            del_twoPinNet_from_graph(treenode.neighbors[0].second, grids);
             branch_nodes.erase(tree_p);
         }
     }
 }
 
-void Net::remove_branch_cycle() {
+void Net::remove_branch_cycle(vector<vector<vector<Gcell>>>& grids) {
     std::priority_queue<TwoPinNet, vector<TwoPinNet>, greater<TwoPinNet>> frontier_edges;
     std::queue<TwoPinNet> skip_edges;
     std::unordered_set <Point,MyHashFunction> visited_nodes;
@@ -387,7 +388,7 @@ void Net::remove_branch_cycle() {
             auto& e2_treeNode = branch_nodes[edge.n2.p];
             for(int n=0; n<e1_treeNode.neighbors.size(); n++) {
                 if(e1_treeNode.neighbors[n].first == edge.n2.p) {
-                     
+                    del_twoPinNet_from_graph((e1_treeNode.neighbors.begin()+n)->second, grids); 
                     e1_treeNode.neighbors.erase(e1_treeNode.neighbors.begin()+n); //ToDo: Travel path to release demand and delete segment
                     break;
                 }
