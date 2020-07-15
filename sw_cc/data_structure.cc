@@ -23,14 +23,14 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     int row = degreeMap.size();
     int column = (degreeMap.empty())? 0:degreeMap[0].size();
     vector<bool> checkRedundant(row*column, false);
-    map<tuple<int,int,int>, vector<pair<int,int>>> localNets;
+    map<tuple<int,int,int>, unordered_map<int,int>> localNets;
     for(const auto& pin:pins) {
         int cell_idx = pin.first;
         int pin_idx = pin.second;
         auto& cell = cellInstances[cell_idx];
         int layer = cell.pins[pin_idx].layer;
         Point p(cell.x,cell.y,layer);
-        localNets[{cell.x, cell.y, layer}].push_back({cell_idx, pin_idx});
+        localNets[{cell.x, cell.y, layer}][cell_idx]  = pin_idx;
         pin_map.emplace(cell.x,cell.y,layer);
         /*
         if(pin_map.find(p) != pin_map.end()) {
@@ -58,10 +58,10 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     traverse_passing_map(degreeMap, pin_map, steiner_map, start, localNets, routingTree, grids);
     // reset passingMap
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 0);
-    //print_two_pins();
+    //print_two_pins(routingTree);
     construct_branch_nodes(routingTree);
     remove_dangling_wire(grids);
-    //print_two_pins();
+    //print_two_pins(routingTree);
     remove_branch_cycle(grids);
 }
 
@@ -123,7 +123,7 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
         unordered_set <Point,MyHashFunction>& pin_map, 
         unordered_set <Point,MyHashFunction>& steiner_map, 
         Point start_p,
-        map<tuple<int,int,int>, vector<pair<int,int>>>& localNets,
+        map<tuple<int,int,int>, unordered_map<int,int>>& localNets,
         std::vector<TwoPinNet>& routingTree,
         vector<vector<vector<Gcell>>>& grids
         ) {
@@ -389,7 +389,7 @@ void Net::remove_branch_cycle(vector<vector<vector<Gcell>>>& grids) {
             for(int n=0; n<e1_treeNode.neighbors.size(); n++) {
                 if(e1_treeNode.neighbors[n].first == edge.n2.p) {
                     del_twoPinNet_from_graph((e1_treeNode.neighbors.begin()+n)->second, grids); 
-                    e1_treeNode.neighbors.erase(e1_treeNode.neighbors.begin()+n); //ToDo: Travel path to release demand and delete segment
+                    e1_treeNode.neighbors.erase(e1_treeNode.neighbors.begin()+n);
                     break;
                 }
             }
@@ -532,6 +532,7 @@ void RoutingGraph::add_cell(int x, int y, int cellIndex) {
     cellInstances[cellIndex].y = y;
     //Add demand into graph
     add_cell_demand_into_graph(x, y, cellInstances[cellIndex].mcType);
+    //TODO Update merged local pin
 }
 
 void RoutingGraph::del_cell(int cellIndex) {
@@ -544,8 +545,44 @@ void RoutingGraph::del_cell(int cellIndex) {
     del_cell_demand_from_graph(x, y, cellInstances[cellIndex].mcType);
     for(auto pin : cellInstances[cellIndex].pins) {
         int netIndex = pin.connectedNet;
-        Net& net = nets[netIndex];
-        if(netIndex != -1) net.del_net_from_graph(x, y, pin.layer, grids);
+        if(netIndex != -1) {
+            Net& net = nets[netIndex];
+            net.del_net_from_graph(x, y, pin.layer, grids);
+            net.branch_nodes.clear();
+        }
+    }
+}
+
+void RoutingGraph::del_cell_neighbor(int cellIndex) {
+    Cell& cell = cellInstances[cellIndex];
+    int x = cell.x;
+    int y = cell.y;
+    placement[x][y].erase(cellIndex);
+    del_cell_demand_from_graph(x, y, cellInstances[cellIndex].mcType);
+    for(auto pin : cellInstances[cellIndex].pins) {
+        int netIndex = pin.connectedNet;
+        Point p = Point(x,y,pin.layer);
+        if(netIndex != -1) {
+            Net& net = nets[netIndex];
+            if(net.branch_nodes.empty()) break;
+            TreeNode& treeNode = net.branch_nodes[p];
+            if(treeNode.neighbors.empty()) break;
+            const Point& neighbor = treeNode.neighbors[0].first;
+            net.del_twoPinNet_from_graph(treeNode.neighbors[0].second, grids);
+            TreeNode& neighborTreeNode = net.branch_nodes[neighbor];
+            for(int i = 0; i < neighborTreeNode.neighbors.size(); ++i) {
+                if(neighborTreeNode.neighbors[i].first == p) {
+                    neighborTreeNode.neighbors.erase(neighborTreeNode.neighbors.begin() + i);
+                    break;
+                }
+            }
+            if(treeNode.node.type == 2) {
+                treeNode.node.mergedLocalPins.erase(cellIndex);
+                if(treeNode.node.mergedLocalPins.size() < 2) treeNode.node.type = 1;
+            }
+            else
+                net.branch_nodes.erase(p);
+        }
     }
 }
 

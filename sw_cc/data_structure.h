@@ -51,7 +51,7 @@ public:
 struct Node{
     Point p;
     int type; //1: pin, 0 steiner node, -1 redundant point, 2: merged local pin
-    std::vector<std::pair<int,int>> mergedLocalPins; 
+    std::unordered_map<int,int> mergedLocalPins;
     bool operator==(const Node& p2){
         return this->p == p2.p;
     }
@@ -103,7 +103,7 @@ struct Net{
         std::unordered_set <Point,MyHashFunction>& pin_map, 
         std::unordered_set <Point,MyHashFunction>& steiner_map,
         Point start_p,
-        std::map<std::tuple<int,int,int>, std::vector<std::pair<int,int>>>& localNets,
+        std::map<std::tuple<int,int,int>, std::unordered_map<int,int>>& localNets,
         std::vector<TwoPinNet>& routingTree,
         std::vector<std::vector<std::vector<Gcell>>>& grids);
     Point return_next_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
@@ -158,6 +158,7 @@ public:
     void del_cell(int cellIndex);
     void add_cell_demand_into_graph(int x, int y, int MCtype);
     void del_cell_demand_from_graph(int x, int y, int MCtype);
+    void del_cell_neighbor(int cellIndex);
     void construct_2pin_nets();
     void move_cells_force();
     Tree RSMT(std::vector<int> x, std::vector<int> y);
