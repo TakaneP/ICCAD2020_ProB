@@ -713,6 +713,8 @@ void RoutingGraph::move_cells_force() {
         vector<int> x_series, y_series;
         for(auto& pin : cell.pins) {
             // find optimal region
+            if(pin.connectedNet == -1)
+                continue;
             Net& neighbor_net = nets[pin.connectedNet];     
             int min_x=INT_MAX, max_x=0, min_y=INT_MAX, max_y=0;       
             for(auto& net_pin : neighbor_net.pins) {
@@ -736,17 +738,17 @@ void RoutingGraph::move_cells_force() {
             continue;
         sort(x_series.begin(), x_series.end());
         sort(y_series.begin(), y_series.end());
-        int opt_x_left = x_series[x_series.size()/2];
-        int opt_x_right = x_series[x_series.size()/2+1];
-        int opt_y_left = y_series[y_series.size()/2];
-        int opt_y_right = y_series[y_series.size()/2+1];
         // no optimal region
-        if(opt_x_left == opt_x_right && opt_y_left == opt_y_right)
+        if(x_series.size()<2 || y_series.size()<2)
             continue;
+        int opt_x_left = x_series[(x_series.size()-1)/2];
+        int opt_x_right = x_series[(x_series.size()-1)/2+1];
+        int opt_y_left = y_series[(y_series.size()-1)/2];
+        int opt_y_right = y_series[(y_series.size()-1)/2+1];
         // cell already in optimal region
         if(cell.x >= opt_x_left && cell.x <= opt_x_right && cell.y >= opt_y_left && cell.y <= opt_y_right)
             continue;
-        cout << opt_x_left << " " << opt_y_left << " " << opt_x_right << " " << opt_y_right << endl;
+        cout << "opt region: " << opt_x_left << " " << opt_y_left << " " << opt_x_right << " " << opt_y_right << endl;
         vector<pair<Point,int>> cells_pos;
         for(int x=opt_x_left; x<=opt_x_right; x++) {
             for(int y=opt_y_left; y<=opt_y_right; y++) {
@@ -755,7 +757,7 @@ void RoutingGraph::move_cells_force() {
             }
         }
         sort(cells_pos.begin(), cells_pos.end(), sortbysec);
-        cout << "(" << cell.x << ", " << cell.y << ")\n";
+        cout << "cell (" << cell.x << ", " << cell.y << ")\n";
         for(int n=0; n<cells_pos.size(); n++) {
             cout << "(" << cells_pos[n].first.x << ", " << cells_pos[n].first.y << ") cost: " << cells_pos[n].second << endl;
         }
@@ -811,13 +813,13 @@ int RoutingGraph::check_cell_cost_in_graph(int x, int y, int MCtype) {
         for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
             layer_remain[_it->first] -= _it->second * (preAfterPairCnt - preOriginalPairCnt + nxtAfterPairCnt - nxtOriginalPairCnt);
         }
-        // calculate profit
-        int profit = 0;
-        for(int n=0; n<layer_remain.size(); n++) {
-            profit += layer_remain[n];
-        }
-        return profit;
     }
+    // calculate profit
+    int profit = 0;
+    for(int n=0; n<layer_remain.size(); n++) {           
+        profit += layer_remain[n];
+    }
+    return profit;
 }
 
 int RoutingGraph::Z_shape_routing(Point source, Point sink, int NetId) {
