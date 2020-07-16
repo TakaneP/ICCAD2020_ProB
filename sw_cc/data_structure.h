@@ -155,6 +155,7 @@ public:
     void move_cells_force();
     // return cell profit after put in cell
     int check_cell_cost_in_graph(int x, int y, int MCtype);
+    int Z_shape_routing(Point source, Point sink, int NetId);
     Tree RSMT(std::vector<int> x, std::vector<int> y);
     int row, column, layer;
     int maxCellMove;
