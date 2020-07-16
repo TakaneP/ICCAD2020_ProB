@@ -51,7 +51,7 @@ public:
 struct Node{
     Point p;
     int type; //1: pin, 0 steiner node, -1 redundant point, 2: merged local pin
-    std::vector<std::pair<int,int>> mergedLocalPins; 
+    std::unordered_map<int,int> mergedLocalPins;
     bool operator==(const Node& p2){
         return this->p == p2.p;
     }
@@ -80,15 +80,20 @@ struct TreeNode{
     std::vector<std::pair<Point,TwoPinNet>> neighbors;
 };
 
+struct Gcell;
+
 struct Net{
+    Net() {}
+    int netId;
     int minRoutingLayer;
-    std::vector<std::pair<int,int>> pins;
+    std::vector<std::pair<int,int>> pins; //First: Cell Instance  Second: Pin
     std::vector<std::pair<Point,Point>> routingSegments;
     std::unordered_map <Point,TreeNode,MyHashFunction> branch_nodes;
     
     void convert_seg_to_2pin(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
         std::vector<Cell>& cellInstances,
-        std::vector<MasterCell>& masterCells
+        std::vector<MasterCell>& masterCells,
+        std::vector<std::vector<std::vector<Gcell>>>& grids
         );
     // add segment in passingMap, and construct steiner_map
     void set_passing_map(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, std::vector<Cell>& cellInstances, 
@@ -98,8 +103,9 @@ struct Net{
         std::unordered_set <Point,MyHashFunction>& pin_map, 
         std::unordered_set <Point,MyHashFunction>& steiner_map,
         Point start_p,
-        std::map<std::tuple<int,int,int>, std::vector<std::pair<int,int>>>& localNets,
-        std::vector<TwoPinNet>& routingTree);
+        std::map<std::tuple<int,int,int>, std::unordered_map<int,int>>& localNets,
+        std::vector<TwoPinNet>& routingTree,
+        std::vector<std::vector<std::vector<Gcell>>>& grids);
     Point return_next_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
     bool check_map_legal(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
     bool check_map_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p, Point dir);
@@ -109,12 +115,17 @@ struct Net{
         Point now_p, Point dir);
     void print_two_pins(std::vector<TwoPinNet>& routingTree);
     void construct_branch_nodes(std::vector<TwoPinNet>& routingTree);
-    void remove_dangling_wire();
+    void remove_dangling_wire(std::vector<std::vector<std::vector<Gcell>>>& grids);
     // construct MST to remove cycle in branch_nodes
-    void remove_branch_cycle();
+    void remove_branch_cycle(std::vector<std::vector<std::vector<Gcell>>>& grids);
     void push_edge_in_queue(std::priority_queue<TwoPinNet, std::vector<TwoPinNet>, std::greater<TwoPinNet>>& frontier_edges);
     // merge degree 2 steiner node
     void merge_steiner_path(Point p);
+    void del_net_from_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
+    void del_seg_demand(std::pair<Point,Point> segment, std::vector<std::vector<std::vector<Gcell>>>& grids);
+    void del_seg_demand_from_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
+    void del_twoPinNet_from_graph(TwoPinNet& twoPinNet, std::vector<std::vector<std::vector<Gcell>>>& grids);
+    void add_net_demand_into_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
 };
 
 struct Cell : public MasterCell{
@@ -147,10 +158,7 @@ public:
     void del_cell(int cellIndex);
     void add_cell_demand_into_graph(int x, int y, int MCtype);
     void del_cell_demand_from_graph(int x, int y, int MCtype);
-    void add_net_demand_into_graph(int x, int y, int z, int netIndex);
-    void del_net_from_graph(int x, int y, int z, int netIndex);
-    void del_seg_demand(std::pair<Point,Point> segment, int netIndex);
-    void del_seg_demand_from_graph(int x, int y, int z, int netIndex);
+    void del_cell_neighbor(int cellIndex);
     void construct_2pin_nets();
     void move_cells_force();
     // return cell profit after put in cell
@@ -161,6 +169,7 @@ public:
     int maxCellMove;
     int usedCellMove; //number of moved cells
     SegmentTree* segmentTree;
+    int get_edge_cost(Point& from, Point& to);
     std::vector<std::vector<std::unordered_map<int,int>>> cellCount; //for extra demand calculation
     std::vector<MasterCell> masterCells;
     std::vector<Cell> cellInstances;
