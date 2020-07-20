@@ -51,7 +51,7 @@ public:
 struct Node{
     Point p;
     int type; //1: pin, 0 steiner node, -1 redundant point, 2: merged local pin
-    std::unordered_map<int,int> mergedLocalPins;
+    std::vector<std::pair<int,int>> mergedLocalPins;
     bool operator==(const Node& p2){
         return this->p == p2.p;
     }
@@ -103,7 +103,7 @@ struct Net{
         std::unordered_set <Point,MyHashFunction>& pin_map, 
         std::unordered_set <Point,MyHashFunction>& steiner_map,
         Point start_p,
-        std::map<std::tuple<int,int,int>, std::unordered_map<int,int>>& localNets,
+        std::map<std::tuple<int,int,int>, std::vector<std::pair<int,int>>>& localNets,
         std::vector<TwoPinNet>& routingTree,
         std::vector<std::vector<std::vector<Gcell>>>& grids);
     Point return_next_dir(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, Point now_p);
@@ -116,11 +116,12 @@ struct Net{
     void print_two_pins(std::vector<TwoPinNet>& routingTree);
     void construct_branch_nodes(std::vector<TwoPinNet>& routingTree);
     void remove_dangling_wire(std::vector<std::vector<std::vector<Gcell>>>& grids);
+    void clear_steiner_point(Point p, std::vector<std::vector<std::vector<Gcell>>>& grids);
     // construct MST to remove cycle in branch_nodes
     void remove_branch_cycle(std::vector<std::vector<std::vector<Gcell>>>& grids);
     void push_edge_in_queue(std::priority_queue<TwoPinNet, std::vector<TwoPinNet>, std::greater<TwoPinNet>>& frontier_edges);
     // merge degree 2 steiner node
-    void merge_steiner_path(Point p);
+    void merge_steiner_path(Point p, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void del_net_from_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void del_seg_demand(std::pair<Point,Point> segment, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void del_seg_demand_from_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
