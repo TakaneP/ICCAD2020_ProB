@@ -1,4 +1,4 @@
-CXX		=	g++ -std=c++11 -O3
+CXX		=	g++ -std=c++11 
 EXE		=   router	
 OBJ_DIR	=	objs
 FLUTE_DIR = flute-3.1
@@ -19,7 +19,7 @@ $(OBJ_DIR)/main.o: main.cc parser.h data_structure.h segment_tree.h output.h | o
 $(OBJ_DIR)/parser.o: parser.cc data_structure.h parser.h segment_tree.h | obj_dir
 	$(CXX) $(CFLAGS) -c $< -o $@
 	
-$(OBJ_DIR)/data_structure.o: data_structure.cc data_structure.h segment_tree.h | obj_dir
+$(OBJ_DIR)/data_structure.o: data_structure.cc data_structure.h | obj_dir
 	$(CXX) $(CFLAGS) -c $< -o $@
 
 $(OBJ_DIR)/segment_tree.o: segment_tree.cc segment_tree.h | obj_dir
