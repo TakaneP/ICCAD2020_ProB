@@ -46,7 +46,7 @@ void preprocess_edges(int num_edges, int *edges, DTYPE *len,
 		      int *e, int *p, int *es);
 
 #define init_queue(q) { q[1] = 2; }
-inline void enqueue(int **q, int e)
+inline static void enqueue(int **q, int e)
 {
   int _qsize;
   if ((*q)[0]==(*q)[1]) { 
@@ -2162,7 +2162,7 @@ int cmpXdata(void *a, void *b)
   return 0;
 }
 
-inline TreeNode *cedge_lca(TreeNode* n1, TreeNode* n2, DTYPE *len, int *n2ton1)
+inline static TreeNode *cedge_lca(TreeNode* n1, TreeNode* n2, DTYPE *len, int *n2ton1)
 {
   int i;
   TreeNode *curr, *lca, *e;

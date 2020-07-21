@@ -4,6 +4,18 @@
 
 using namespace std;
 
+void print_neighbors(Net& n) {
+    printf("Net %d\n", n.netId);
+    for(auto it = n.branch_nodes.begin(); it != n.branch_nodes.end(); ++it) {
+        const Point& p = it->first;
+        TreeNode& treeNode = it->second;
+        printf("Point %d %d %d:\n", p.x, p.y, p.z);
+        for(auto _it = treeNode.neighbors.begin(); _it != treeNode.neighbors.end(); _it++) {
+            printf("%d %d %d\n", _it->first.x, _it->first.y, _it->first.z);
+        }
+    }
+}
+
 bool operator>(const TwoPinNet& n1, const TwoPinNet& n2) {
     return n1.wire_length>n2.wire_length;
 }
@@ -35,14 +47,14 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     int row = degreeMap.size();
     int column = (degreeMap.empty())? 0:degreeMap[0].size();
     vector<bool> checkRedundant(row*column, false);
-    map<tuple<int,int,int>, unordered_map<int,int>> localNets;
+    map<tuple<int,int,int>, vector<pair<int,int>>> localNets;
     for(const auto& pin:pins) {
         int cell_idx = pin.first;
         int pin_idx = pin.second;
         auto& cell = cellInstances[cell_idx];
         int layer = cell.pins[pin_idx].layer;
         Point p(cell.x,cell.y,layer);
-        localNets[{cell.x, cell.y, layer}][cell_idx]  = pin_idx;
+        localNets[{cell.x, cell.y, layer}].push_back({cell_idx, pin_idx});
         pin_map.emplace(cell.x,cell.y,layer);
         /*
         if(pin_map.find(p) != pin_map.end()) {
@@ -70,7 +82,6 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     traverse_passing_map(degreeMap, pin_map, steiner_map, start, localNets, routingTree, grids);
     // reset passingMap
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 0);
-    //print_two_pins(routingTree);
     construct_branch_nodes(routingTree);
     remove_dangling_wire(grids);
     //print_two_pins(routingTree);
@@ -135,7 +146,7 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
         unordered_set <Point,MyHashFunction>& pin_map, 
         unordered_set <Point,MyHashFunction>& steiner_map, 
         Point start_p,
-        map<tuple<int,int,int>, unordered_map<int,int>>& localNets,
+        map<tuple<int,int,int>, vector<pair<int,int>>>& localNets,
         std::vector<TwoPinNet>& routingTree,
         vector<vector<vector<Gcell>>>& grids
         ) {
@@ -337,6 +348,9 @@ void Net::remove_dangling_wire(vector<vector<vector<Gcell>>>& grids) {
         if (branch_nodes.find(tree_p) == branch_nodes.end())
             continue;
         auto& treenode = branch_nodes[tree_p];
+        if(treenode.node.type == 0 && treenode.neighbors.size() == 2)
+            clear_steiner_point(tree_p, grids);
+
         // find dangling endpoint
         if(treenode.node.type == -1) {
             Point neighbor = treenode.neighbors[0].first;
@@ -450,6 +464,80 @@ void Net::push_edge_in_queue(std::priority_queue<TwoPinNet, vector<TwoPinNet>, g
     }
 }
 
+void Net::clear_steiner_point(Point p, vector<vector<vector<Gcell>>>& grids) {
+    TreeNode& treeNode = branch_nodes[p];
+    const Point& neighbor1 = treeNode.neighbors[0].first;
+    const Point& neighbor2 = treeNode.neighbors[1].first;
+    TwoPinNet& twoPinNet1 = treeNode.neighbors[0].second;
+    TwoPinNet& twoPinNet2 = treeNode.neighbors[1].second;
+    TreeNode& neighbor1TreeNode = branch_nodes[neighbor1];
+    TreeNode& neighbor2TreeNode = branch_nodes[neighbor2];
+    if(neighbor1 == neighbor2) {
+        del_twoPinNet_from_graph(twoPinNet2, grids);
+        for(int i = neighbor1TreeNode.neighbors.size() - 1; i >= 0; --i) {
+            if(neighbor1TreeNode.neighbors[i].first == p) {
+                neighbor1TreeNode.neighbors.erase(neighbor1TreeNode.neighbors.begin()+i);
+                break;
+            }
+        }
+        treeNode.neighbors.pop_back();
+        treeNode.node.type = -1;
+        return;
+    }
+    int pos1 = -1, pos2 = -1, pos3 = -1, pos4 = -1;
+    for(int i = 0; i < neighbor1TreeNode.neighbors.size(); ++i) {
+        if(neighbor1TreeNode.neighbors[i].first == p) pos1 = i;
+        if(neighbor1TreeNode.neighbors[i].first == neighbor2) pos2 = i;
+        if(pos1 != -1 && pos2 != -1) break;
+    }
+    for(int i = 0; i < neighbor2TreeNode.neighbors.size(); ++i) {
+        if(neighbor2TreeNode.neighbors[i].first == p) pos3 = i;
+        if(neighbor2TreeNode.neighbors[i].first == neighbor1) pos4 = i;
+        if(pos3 != -1 && pos4 != -1) break;
+    }
+    //Multi Edge occurs
+    if(pos2 != -1 && pos4 != -1 ) {
+        int wirelength1, wirelength2;
+        neighbor1TreeNode.neighbors[pos2].second.update_wire_length();
+        wirelength1 = neighbor1TreeNode.neighbors[pos2].second.wire_length;
+        twoPinNet1.update_wire_length();
+        twoPinNet2.update_wire_length();
+        wirelength2 = twoPinNet1.wire_length + twoPinNet2.wire_length;
+        if(wirelength1 <= wirelength2) {
+            del_twoPinNet_from_graph(twoPinNet1, grids);
+            del_twoPinNet_from_graph(twoPinNet2, grids);
+        }
+        else {
+            del_twoPinNet_from_graph(neighbor1TreeNode.neighbors[pos2].second, grids);
+            grids[p.x][p.y][p.z].passingNets[netId]--;
+            neighbor1TreeNode.neighbors[pos2].second.paths = neighbor1TreeNode.neighbors[pos1].second.paths;
+            neighbor2TreeNode.neighbors[pos4].second.paths = neighbor2TreeNode.neighbors[pos3].second.paths;
+            neighbor1TreeNode.neighbors[pos2].second.paths.insert(neighbor1TreeNode.neighbors[pos2].second.paths.end(), twoPinNet2.paths.begin(), twoPinNet2.paths.end());
+            neighbor2TreeNode.neighbors[pos4].second.paths.insert(neighbor2TreeNode.neighbors[pos4].second.paths.end(), twoPinNet1.paths.begin(), twoPinNet1.paths.end());
+        }
+    }
+    else{
+        grids[p.x][p.y][p.z].passingNets[netId]--;
+        neighbor1TreeNode.neighbors.push_back({neighbor2, TwoPinNet()});
+        neighbor2TreeNode.neighbors.push_back({neighbor1, TwoPinNet()});
+        int index1 = neighbor1TreeNode.neighbors.size() - 1;
+        int index2 = neighbor2TreeNode.neighbors.size() - 1;
+        neighbor1TreeNode.neighbors[index1].second.n1 = neighbor1TreeNode.node;
+        neighbor1TreeNode.neighbors[index1].second.n2 = neighbor2TreeNode.node;
+        neighbor2TreeNode.neighbors[index2].second.n1 = neighbor2TreeNode.node;
+        neighbor2TreeNode.neighbors[index2].second.n2 = neighbor1TreeNode.node;
+        neighbor1TreeNode.neighbors[index1].second.paths = neighbor1TreeNode.neighbors[pos1].second.paths;
+        neighbor2TreeNode.neighbors[index2].second.paths = neighbor2TreeNode.neighbors[pos3].second.paths;
+        neighbor1TreeNode.neighbors[index1].second.paths.insert(neighbor1TreeNode.neighbors[index1].second.paths.end(),
+                                                                twoPinNet2.paths.begin(), twoPinNet2.paths.end());
+        neighbor2TreeNode.neighbors[index2].second.paths.insert(neighbor2TreeNode.neighbors[index2].second.paths.end(),
+                                                                twoPinNet1.paths.begin(), twoPinNet1.paths.end());
+    }
+    neighbor1TreeNode.neighbors.erase(neighbor1TreeNode.neighbors.begin()+pos1);
+    neighbor2TreeNode.neighbors.erase(neighbor2TreeNode.neighbors.begin()+pos3);
+    branch_nodes.erase(p);
+}
+
 RoutingGraph::RoutingGraph(): usedCellMove(0) {segmentTree = new SegmentTree(*this);}
 RoutingGraph::~RoutingGraph() {delete segmentTree;}
 
@@ -544,7 +632,26 @@ void RoutingGraph::add_cell(int x, int y, int cellIndex) {
     cellInstances[cellIndex].y = y;
     //Add demand into graph
     add_cell_demand_into_graph(x, y, cellInstances[cellIndex].mcType);
-    //TODO Update merged local pin
+    //Update merged local pin
+    Cell& cell = cellInstances[cellIndex];
+    if(nets.size() > 0) {
+        for(int i = 0; i < cell.pins.size(); ++i) {
+            Pin& pin = cell.pins[i];
+            int netIndex = pin.connectedNet;
+            if(netIndex != -1) {
+                Net& net = nets[netIndex];
+                auto treeNodePos = net.branch_nodes.find(Point(x, y, pin.layer));
+                if(treeNodePos != net.branch_nodes.end()) {
+                    TreeNode& treeNode = treeNodePos->second;
+                    Node& node = treeNode.node;
+                    node.mergedLocalPins.push_back({cellIndex,i});
+                    if(node.type == 0) node.type == 1;
+                    else if(node.type == 1 && node.mergedLocalPins.size() > 1)
+                        node.type = 2;
+                }
+            }
+        }
+    }
 }
 
 void RoutingGraph::del_cell(int cellIndex) {
@@ -571,7 +678,8 @@ void RoutingGraph:: del_cell_neighbor(int cellIndex) {
     int y = cell.y;
     placement[x][y].erase(cellIndex);
     del_cell_demand_from_graph(x, y, cellInstances[cellIndex].mcType);
-    for(auto pin : cellInstances[cellIndex].pins) {
+    for(int i = 0; i < cell.pins.size(); ++i) {
+        Pin& pin = cell.pins[i];
         int netIndex = pin.connectedNet;
         Point p = Point(x,y,pin.layer);
         if(netIndex != -1) {
@@ -589,8 +697,14 @@ void RoutingGraph:: del_cell_neighbor(int cellIndex) {
                 }
             }
             if(treeNode.node.type == 2) {
-                treeNode.node.mergedLocalPins.erase(cellIndex);
-                if(treeNode.node.mergedLocalPins.size() < 2) treeNode.node.type = 1;
+                for(auto it = treeNode.node.mergedLocalPins.begin(); it != treeNode.node.mergedLocalPins.end();) {
+                    if(it->first == cellIndex && it->second == i) {
+                        it = treeNode.node.mergedLocalPins.erase(it);
+                        break;
+                    }
+                }
+                if(treeNode.node.mergedLocalPins.size() == 1) treeNode.node.type = 1;
+                else if(treeNode.node.mergedLocalPins.size() == 0) net.branch_nodes.erase(p);
             }
             else
                 net.branch_nodes.erase(p);
@@ -601,6 +715,25 @@ void RoutingGraph:: del_cell_neighbor(int cellIndex) {
 void Net::add_net_demand_into_graph(int x, int y, int z, vector<vector<vector<Gcell>>>& grids) {
     if(grids[x][y][z].passingNets[netId]++ == 0) //every pin and segment contribute 1 to passingNet
         grids[x][y][z].demand++;
+}
+
+void Net::add_twopin_demand_into_graph(TwoPinNet& twoPinNet, vector<vector<vector<Gcell>>>& grids) {
+    for(auto it = twoPinNet.paths.begin(); it != twoPinNet.paths.end(); ++it) {
+        Point& start = it->first;
+        Point& end = it->second;
+        if(start.x != end.x) {
+            for(int i = start.x; i <= end.x; ++i)
+                add_net_demand_into_graph(i, start.y, start.z, grids);
+        }
+        else if(start.y != end.y) {
+            for(int i = start.y; i <= end.y; ++i)
+                add_net_demand_into_graph(start.x, i, start.z, grids);
+        }
+        else if(start.z != end.z) {
+            for(int i = start.z; i <= end.z; ++i)
+                add_net_demand_into_graph(start.x, start.y, i, grids);
+        }
+    }
 }
 
 void Net::del_net_from_graph(int x, int y, int z, vector<vector<vector<Gcell>>>& grids) {
