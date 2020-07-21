@@ -672,7 +672,7 @@ void RoutingGraph::del_cell(int cellIndex) {
     }
 }
 
-void RoutingGraph:: del_cell_neighbor(int cellIndex) {
+void RoutingGraph::del_cell_neighbor(int cellIndex) {
     Cell& cell = cellInstances[cellIndex];
     int x = cell.x;
     int y = cell.y;
@@ -867,7 +867,6 @@ void RoutingGraph::move_cells_force() {
             auto& net = nets[pin.connectedNet];
             Point cell_p(cell.x, cell.y, pin.layer);
             cout << "net id = " << net.netId << endl;
-            cout << cell_p << endl;           
             for(auto& neighbor : net.branch_nodes[cell_p].neighbors) {
                 Point neighbor_p = neighbor.first;
                 open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), neighbor_p, net.netId, neighbor.second);
@@ -884,7 +883,7 @@ void RoutingGraph::move_cells_force() {
             Point source = get<0>(open_net), sink = get<1>(open_net);
             bool seccess = A_star_routing(source, sink, get<2>(open_net), visited_p);
             if(seccess)
-                cout << "A star seccess\n";
+                cout << "A star seccess , Net " << get<2>(open_net) << "\n";
             else {
                 cout << "A star fail\n";
                 // reverse
@@ -896,7 +895,7 @@ void RoutingGraph::move_cells_force() {
                     net.branch_nodes[p1].neighbors.emplace_back(get<1>(open_net),get<3>(open_net));
                     net.branch_nodes[get<1>(open_net)].neighbors.emplace_back(p1,get<3>(open_net));
                     // add two_pin demand into graph
-
+                    net.add_twopin_demand_into_graph(get<3>(open_net), grids);
                 }
                 break;
             }
@@ -929,13 +928,13 @@ void RoutingGraph::move_cells_force() {
                 if(tmp_node == source)
                     break;
                 tmp_node = back_p;
-            }           
+            }
             // rebuild branch_nodes
             auto& net = nets[get<2>(open_net)];
             net.branch_nodes[source].neighbors.emplace_back(sink,two_pin);
             net.branch_nodes[sink].neighbors.emplace_back(source,two_pin);
             // add two_pin demand into graph
-
+            net.add_twopin_demand_into_graph(two_pin, grids);
         }      
         movedCell.insert(cell_idx);
     }
@@ -1060,9 +1059,22 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
     int max_y = max(source.y, sink.y);
     int min_l = min(source.z, sink.z);
     int max_l = max(source.z, sink.z);
-    min_l = (min_l>0) ? min_l-1 : min_l;
-    min_l = (min_l<nets[NetId].minRoutingLayer) ? nets[NetId].minRoutingLayer : min_l;
+    visited_p[source] = source;
     max_l = (max_l<this->layer-1) ? max_l+1 : max_l;
+    int min_r_l = nets[NetId].minRoutingLayer;
+    Point ori_source = source, ori_sink = sink;
+    if(min_l < min_r_l) {
+        min_l = min_r_l;
+        if(source.z < min_r_l) {
+            source.z = min_r_l;
+            visited_p[source] = ori_source;
+        }
+        if(sink.z < min_r_l) {
+            sink.z = min_r_l;
+            visited_p[ori_sink] = sink;
+        }
+    }
+    if(max_l < min_l) return 0;
     priority_queue<pair<Point,int>> p_q;
     auto& gcell = grids[source.x][source.y][source.z];
     int wire_length = 1;
@@ -1072,7 +1084,6 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
     if(remain < 0)
         return 0;
     p_q.emplace(source, gcell.demand+wire_length+distance(source,sink));
-    visited_p[source] = source;
     bool find_flag = 0;
     while(!p_q.empty()) {
         auto frontier = p_q.top();
@@ -1161,7 +1172,6 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
             }
         }
     }
-    cout << "\nFind!!\n\n";
     return find_flag;
 }
 
