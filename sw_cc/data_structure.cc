@@ -690,9 +690,9 @@ void RoutingGraph:: del_cell_neighbor(int cellIndex) {
             const Point& neighbor = treeNode.neighbors[0].first;
             net.del_twoPinNet_from_graph(treeNode.neighbors[0].second, grids);
             TreeNode& neighborTreeNode = net.branch_nodes[neighbor];
-            for(int i = 0; i < neighborTreeNode.neighbors.size(); ++i) {
-                if(neighborTreeNode.neighbors[i].first == p) {
-                    neighborTreeNode.neighbors.erase(neighborTreeNode.neighbors.begin() + i);
+            for(int j = 0; j < neighborTreeNode.neighbors.size(); ++j) {
+                if(neighborTreeNode.neighbors[j].first == p) {
+                    neighborTreeNode.neighbors.erase(neighborTreeNode.neighbors.begin() + j);
                     break;
                 }
             }
@@ -702,6 +702,7 @@ void RoutingGraph:: del_cell_neighbor(int cellIndex) {
                         it = treeNode.node.mergedLocalPins.erase(it);
                         break;
                     }
+                    else ++it;
                 }
                 if(treeNode.node.mergedLocalPins.size() == 1) treeNode.node.type = 1;
                 else if(treeNode.node.mergedLocalPins.size() == 0) net.branch_nodes.erase(p);
