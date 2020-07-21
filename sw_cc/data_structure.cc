@@ -883,7 +883,7 @@ void RoutingGraph::move_cells_force() {
             Point source = get<0>(open_net), sink = get<1>(open_net);
             bool seccess = A_star_routing(source, sink, get<2>(open_net), visited_p);
             if(seccess)
-                cout << "A star seccess\n";
+                cout << "A star seccess , Net " << get<2>(open_net) << "\n";
             else {
                 cout << "A star fail\n";
                 // reverse
@@ -1059,9 +1059,22 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
     int max_y = max(source.y, sink.y);
     int min_l = min(source.z, sink.z);
     int max_l = max(source.z, sink.z);
-    min_l = (min_l>0) ? min_l-1 : min_l;
-    min_l = (min_l<nets[NetId].minRoutingLayer) ? nets[NetId].minRoutingLayer : min_l;
+    visited_p[source] = source;
     max_l = (max_l<this->layer-1) ? max_l+1 : max_l;
+    int min_r_l = nets[NetId].minRoutingLayer;
+    Point ori_source = source, ori_sink = sink;
+    if(min_l < min_r_l) {
+        min_l = min_r_l;
+        if(source.z < min_r_l) {
+            source.z = min_r_l;
+            visited_p[source] = ori_source;
+        }
+        if(sink.z < min_r_l) {
+            sink.z = min_r_l;
+            visited_p[ori_sink] = sink;
+        }
+    }
+    if(max_l < min_l) return 0;
     priority_queue<pair<Point,int>> p_q;
     auto& gcell = grids[source.x][source.y][source.z];
     int wire_length = 1;
@@ -1071,7 +1084,6 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
     if(remain < 0)
         return 0;
     p_q.emplace(source, gcell.demand+wire_length+distance(source,sink));
-    visited_p[source] = source;
     bool find_flag = 0;
     while(!p_q.empty()) {
         auto frontier = p_q.top();
@@ -1160,7 +1172,6 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
             }
         }
     }
-    cout << "\nFind!!\n\n";
     return find_flag;
 }
 
