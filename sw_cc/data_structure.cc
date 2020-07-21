@@ -705,6 +705,25 @@ void Net::add_net_demand_into_graph(int x, int y, int z, vector<vector<vector<Gc
         grids[x][y][z].demand++;
 }
 
+void Net::add_twopin_demand_into_graph(TwoPinNet& twoPinNet, vector<vector<vector<Gcell>>>& grids) {
+    for(auto it = twoPinNet.paths.begin(); it != twoPinNet.paths.end(); ++it) {
+        Point& start = it->first;
+        Point& end = it->second;
+        if(start.x != end.x) {
+            for(int i = start.x; i <= end.x; ++i)
+                add_net_demand_into_graph(i, start.y, start.z, grids);
+        }
+        else if(start.y != end.y) {
+            for(int i = start.y; i <= end.y; ++i)
+                add_net_demand_into_graph(start.x, i, start.z, grids);
+        }
+        else if(start.z != end.z) {
+            for(int i = start.z; i <= end.z; ++i)
+                add_net_demand_into_graph(start.x, start.y, i, grids);
+        }
+    }
+}
+
 void Net::del_net_from_graph(int x, int y, int z, vector<vector<vector<Gcell>>>& grids) {
     if(--grids[x][y][z].passingNets[netId] == 0) //every pin automatically contributes 1 to passingNets
         grids[x][y][z].demand--;
