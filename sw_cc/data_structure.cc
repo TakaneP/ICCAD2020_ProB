@@ -672,7 +672,7 @@ void RoutingGraph::del_cell(int cellIndex) {
     }
 }
 
-void RoutingGraph:: del_cell_neighbor(int cellIndex) {
+void RoutingGraph::del_cell_neighbor(int cellIndex) {
     Cell& cell = cellInstances[cellIndex];
     int x = cell.x;
     int y = cell.y;
@@ -866,7 +866,6 @@ void RoutingGraph::move_cells_force() {
             auto& net = nets[pin.connectedNet];
             Point cell_p(cell.x, cell.y, pin.layer);
             cout << "net id = " << net.netId << endl;
-            cout << cell_p << endl;           
             for(auto& neighbor : net.branch_nodes[cell_p].neighbors) {
                 Point neighbor_p = neighbor.first;
                 open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), neighbor_p, net.netId, neighbor.second);
@@ -895,7 +894,7 @@ void RoutingGraph::move_cells_force() {
                     net.branch_nodes[p1].neighbors.emplace_back(get<1>(open_net),get<3>(open_net));
                     net.branch_nodes[get<1>(open_net)].neighbors.emplace_back(p1,get<3>(open_net));
                     // add two_pin demand into graph
-
+                    net.add_twopin_demand_into_graph(get<3>(open_net), grids);
                 }
                 break;
             }
@@ -928,13 +927,13 @@ void RoutingGraph::move_cells_force() {
                 if(tmp_node == source)
                     break;
                 tmp_node = back_p;
-            }           
+            }
             // rebuild branch_nodes
             auto& net = nets[get<2>(open_net)];
             net.branch_nodes[source].neighbors.emplace_back(sink,two_pin);
             net.branch_nodes[sink].neighbors.emplace_back(source,two_pin);
             // add two_pin demand into graph
-
+            net.add_twopin_demand_into_graph(two_pin, grids);
         }      
         movedCell.insert(cell_idx);
     }
