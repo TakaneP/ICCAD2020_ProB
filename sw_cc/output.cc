@@ -23,7 +23,7 @@ void DFS(vector<pair<Point,Point>>& netSegments, map<tuple<int,int,int>, bool>& 
 void output_file(RoutingGraph* routingGraph, string outputFile) {
     ofstream fout;
     fout.open(outputFile);
-    fout << "NumMovedCellInst " << routingGraph->usedCellMove << "\n";
+    fout << "NumMovedCellInst " << routingGraph->movedCell.size() << "\n";
     for(auto& cell : routingGraph->movedCell) 
         fout << "CellInst " << "C" << cell + 1 << " " << routingGraph->cellInstances[cell].x + 1 << " " << routingGraph->cellInstances[cell].y + 1 << "\n";
     int numRoutes = 0;

@@ -37,8 +37,14 @@ struct Point{
     bool operator==(const Point& p2) const{
         return (this->x==p2.x) && (this->y==p2.y) && (this->z==p2.z);
     }
+    bool operator!=(const Point& p2) const{
+        return (this->x!=p2.x) || (this->y!=p2.y) || (this->z!=p2.z);
+    }
     Point operator+(const Point& p2) const{
         return Point(this->x+p2.x, this->y+p2.y, this->z+p2.z);
+    }
+    bool operator<=(const Point& p2) const{
+        return (this->x<=p2.x) && (this->y<=p2.y) && (this->z<=p2.z);
     }
     int x,y,z;
 };
@@ -46,6 +52,7 @@ struct Point{
 class MyHashFunction { 
 public: 
     size_t operator()(const Point& p) const;
+    size_t operator()(const std::pair<Point,Point>& p) const;
 }; 
 
 struct Node{
@@ -161,9 +168,12 @@ public:
     void del_cell_neighbor(int cellIndex);
     void construct_2pin_nets();
     void move_cells_force();
+    bool find_optimal_pos(Cell cell, std::vector<std::pair<Point,int>>& cells_pos);
     // return cell profit after put in cell
     int check_cell_cost_in_graph(int x, int y, int MCtype);
     int Z_shape_routing(Point source, Point sink, int NetId);
+    bool A_star_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
+    int check_segment_profit(Point from, Point to, int NetId);
     Tree RSMT(std::vector<int> x, std::vector<int> y);
     int row, column, layer;
     int maxCellMove;
