@@ -855,7 +855,7 @@ void RoutingGraph::move_cells_force() {
     for(int cell_idx=0; cell_idx<cellInstances.size(); cell_idx++) {
         if(this->movedCell.size() >= maxCellMove) return;
         Cell cell = cellInstances[cell_idx];
-        if(cell_idx > 3) return;
+        if(cell_idx > 14) return;
         int cell_ori_x = cell.x, cell_ori_y = cell.y;
         cout << "\ncell " << cell_idx << " (" << cell.x << "," << cell.y << ")\n";
         vector<pair<Point,int>> cells_pos;
@@ -882,6 +882,7 @@ void RoutingGraph::move_cells_force() {
         del_cell_neighbor(cell_idx);
         add_cell(to_p.x,to_p.y,cell_idx);
         // test reroute
+        bool routing_success = 1;
         for(auto& open_net : open_nets) {
             cout << endl << get<0>(open_net) << " " << get<1>(open_net) << " " << get<2>(open_net) << endl;
             //Z_shape_routing(get<0>(open_net), get<1>(open_net), get<2>(open_net));
@@ -893,17 +894,7 @@ void RoutingGraph::move_cells_force() {
             else {
                 cout << "A star fail\n";
                 // reverse
-                del_cell_neighbor(cell_idx);
-                add_cell(cell_ori_x,cell_ori_y,cell_idx);
-                for(auto& open_net : open_nets) {
-                    auto& net = nets[get<2>(open_net)];
-                    Point p1(cell_ori_x, cell_ori_y, get<0>(open_net).z);
-                    net.branch_nodes[p1].node = get<3>(open_net);
-                    net.branch_nodes[p1].neighbors.emplace_back(get<1>(open_net),get<4>(open_net));
-                    net.branch_nodes[get<1>(open_net)].neighbors.emplace_back(p1,get<4>(open_net));
-                    // add two_pin demand into graph
-                    net.add_twopin_demand_into_graph(get<4>(open_net), grids);
-                }
+                routing_success = 0;
                 break;
             }
             TwoPinNet two_pin = convert_path_to_twopin(source, sink, visited_p);
@@ -918,8 +909,32 @@ void RoutingGraph::move_cells_force() {
             net.branch_nodes[sink].neighbors.emplace_back(source,two_pin);
             // add two_pin demand into graph
             net.add_twopin_demand_into_graph(two_pin, grids);
-        }      
-        movedCell.insert(cell_idx);
+        }
+        if(routing_success)
+            movedCell.insert(cell_idx);
+        else {
+            del_cell_neighbor(cell_idx);
+            if(cell_ori_x == cell.originalX && cell_ori_y == cell.originalY)
+                movedCell.erase(cell_idx);
+            add_cell(cell_ori_x,cell_ori_y,cell_idx);
+            for(auto& open_net : open_nets) {
+                auto& net = nets[get<2>(open_net)];
+                Point p1(cell_ori_x, cell_ori_y, get<0>(open_net).z);
+                cout << "re: " << p1 << " " << get<1>(open_net) << endl;
+                net.branch_nodes[p1].node = get<3>(open_net);
+                int n;
+                /*for(n=0; n<net.branch_nodes[p1].neighbors.size(); n++) {
+                    if(net.branch_nodes[p1].neighbors[n].first == get<1>(open_net))
+                        break;
+                }
+                if(n != net.branch_nodes[p1].neighbors.size()) {*/
+                    net.branch_nodes[p1].neighbors.emplace_back(get<1>(open_net),get<4>(open_net));
+                    net.branch_nodes[get<1>(open_net)].neighbors.emplace_back(p1,get<4>(open_net));
+                //}
+                // add two_pin demand into graph
+                net.add_twopin_demand_into_graph(get<4>(open_net), grids);
+            }
+        }
     }
 }
 
