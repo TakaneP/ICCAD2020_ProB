@@ -684,22 +684,19 @@ void RoutingGraph::del_cell_neighbor(int cellIndex) {
         Point p = Point(x,y,pin.layer);
         if(netIndex != -1) {
             Net& net = nets[netIndex];
-            if(net.branch_nodes.empty()) break;
+            if(net.branch_nodes.empty() || net.branch_nodes.find(p) == net.branch_nodes.end()) continue;
             TreeNode& treeNode = net.branch_nodes[p];
-            if(treeNode.neighbors.empty()) break;
+            if(treeNode.neighbors.empty()) continue;
             if(treeNode.node.type == 2) {
                 for(auto it = treeNode.node.mergedLocalPins.begin(); it != treeNode.node.mergedLocalPins.end();) {
-                    if(it->first == cellIndex && it->second == i) {
+                    if(it->first == cellIndex && it->second == i)
                         it = treeNode.node.mergedLocalPins.erase(it);
-                        break;
-                    }
                     else ++it;
                 }
-                if(treeNode.node.mergedLocalPins.size() == 1) {
+                if(treeNode.node.mergedLocalPins.size() == 1)
                     treeNode.node.type = 1;
-                    continue;
-                }
-                else if(treeNode.node.mergedLocalPins.size() > 1)
+
+                if(treeNode.node.mergedLocalPins.size() >= 1)
                     continue;
             }
             const Point& neighbor = treeNode.neighbors[0].first;
@@ -856,6 +853,7 @@ void RoutingGraph::move_cells_force() {
         if(this->movedCell.size() >= maxCellMove) return;
         Cell cell = cellInstances[cell_idx];
         if(cell_idx > 14) return;
+        //if(cell_idx != 3 && cell_idx != 1) continue;
         int cell_ori_x = cell.x, cell_ori_y = cell.y;
         cout << "\ncell " << cell_idx << " (" << cell.x << "," << cell.y << ")\n";
         vector<pair<Point,int>> cells_pos;
@@ -935,8 +933,8 @@ void RoutingGraph::move_cells_force() {
                 // add two_pin demand into graph            
                 net.add_twopin_demand_into_graph(get<4>(open_net), grids);
             }
-            cout << "head: " << nets[596].branch_nodes.begin()->first << " " << nets[596].branch_nodes.begin()->second.neighbors.size() << endl;
-
+            //cout << "head: " << nets[0].branch_nodes.begin()->first << " " << nets[0].branch_nodes.begin()->second.neighbors.size() << endl;
+            //print_neighbors(nets[0]);
         }
     }
 }
