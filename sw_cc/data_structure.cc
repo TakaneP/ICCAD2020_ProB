@@ -1081,7 +1081,7 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
     priority_queue<pair<Point,int>> p_q;
     auto& gcell = grids[source.x][source.y][source.z];
     int wire_length = 1;
-    if(gcell.passingNets.find(NetId) != gcell.passingNets.end())
+    if(gcell.passingNets[NetId] == 0)
         wire_length = 0;
     int remain = gcell.capacity-gcell.demand-wire_length;
     if(remain < 0)
