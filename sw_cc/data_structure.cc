@@ -687,6 +687,21 @@ void RoutingGraph:: del_cell_neighbor(int cellIndex) {
             if(net.branch_nodes.empty()) break;
             TreeNode& treeNode = net.branch_nodes[p];
             if(treeNode.neighbors.empty()) break;
+            if(treeNode.node.type == 2) {
+                for(auto it = treeNode.node.mergedLocalPins.begin(); it != treeNode.node.mergedLocalPins.end();) {
+                    if(it->first == cellIndex && it->second == i) {
+                        it = treeNode.node.mergedLocalPins.erase(it);
+                        break;
+                    }
+                    else ++it;
+                }
+                if(treeNode.node.mergedLocalPins.size() == 1) {
+                    treeNode.node.type = 1;
+                    continue;
+                }
+                else if(treeNode.node.mergedLocalPins.size() > 1)
+                    continue;
+            }
             const Point& neighbor = treeNode.neighbors[0].first;
             net.del_twoPinNet_from_graph(treeNode.neighbors[0].second, grids);
             TreeNode& neighborTreeNode = net.branch_nodes[neighbor];
@@ -696,19 +711,7 @@ void RoutingGraph:: del_cell_neighbor(int cellIndex) {
                     break;
                 }
             }
-            if(treeNode.node.type == 2) {
-                for(auto it = treeNode.node.mergedLocalPins.begin(); it != treeNode.node.mergedLocalPins.end();) {
-                    if(it->first == cellIndex && it->second == i) {
-                        it = treeNode.node.mergedLocalPins.erase(it);
-                        break;
-                    }
-                    else ++it;
-                }
-                if(treeNode.node.mergedLocalPins.size() == 1) treeNode.node.type = 1;
-                else if(treeNode.node.mergedLocalPins.size() == 0) net.branch_nodes.erase(p);
-            }
-            else
-                net.branch_nodes.erase(p);
+            net.branch_nodes.erase(p);
         }
     }
 }
@@ -1163,6 +1166,64 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
     }
     cout << "\nFind!!\n\n";
     return find_flag;
+}
+
+void RoutingGraph::reroute_all_net() {
+    for(auto it = nets.begin(); it != nets.end(); ++it) {
+        Net& net = *it;
+        unordered_map<Point, bool, MyHashFunction> visited;
+        if(net.minRoutingLayer > 0) continue;
+        for(auto _it = net.branch_nodes.begin(); _it != net.branch_nodes.end(); ++_it) {
+            const Point& start = _it->first;
+            TreeNode& treeNode = _it->second;
+            visited[start] = true;
+            for(auto __it = treeNode.neighbors.begin(); __it != treeNode.neighbors.end(); ++__it) {
+                Point& end = __it->first;
+                if(visited[end] == false) {
+                    net.del_twoPinNet_from_graph(__it->second, grids);
+                    unordered_map<Point,Point,MyHashFunction> visited_p;
+                    A_star_routing(start, end, net.netId, visited_p);
+                    Point tmp_node = end;
+                    int dir = 0; // 1: vertical, 2: horizontal, 3:via
+                    TwoPinNet two_pin;
+                    two_pin.n1.p = start;
+                    two_pin.n2.p = end;
+                    two_pin.paths.push_back({end,visited_p[end]});
+                    // build TwopinNet
+                    while(true) {
+                        Point back_p = visited_p[tmp_node];
+                        int new_dir = 0;
+                        if(back_p.x != tmp_node.x) new_dir = 1;
+                        if(back_p.y != tmp_node.y) new_dir = 2;
+                        if(back_p.z != tmp_node.z) new_dir = 3;
+                        if(new_dir != dir) {
+                            two_pin.paths.back().second = tmp_node;
+                            if(tmp_node!=start && tmp_node != end)
+                                two_pin.paths.push_back({tmp_node,back_p});
+                            dir = new_dir;
+                        }
+                        if(tmp_node == start)
+                            break;
+                        tmp_node = back_p;
+                    }
+                    // rebuild branch_nodes
+                    for(int i = 0; i < net.branch_nodes[start].neighbors.size(); ++i) {
+                        if(net.branch_nodes[start].neighbors[i].first == end) {
+                            net.branch_nodes[start].neighbors[i].second = two_pin;
+                            break;
+                        }
+                    }
+                    for(int i = 0; i < net.branch_nodes[end].neighbors.size(); ++i) {
+                        if(net.branch_nodes[end].neighbors[i].first == start) {
+                            net.branch_nodes[end].neighbors[i].second = two_pin;
+                            break;
+                        }
+                    }
+                    // add two_pin demand into graph
+                }
+            }
+        }
+    }
 }
 
 void TwoPinNet::update_wire_length() {

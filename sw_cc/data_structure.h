@@ -170,6 +170,7 @@ public:
     void del_cell_neighbor(int cellIndex);
     void construct_2pin_nets();
     void move_cells_force();
+    void reroute_all_net();
     bool find_optimal_pos(Cell cell, std::vector<std::pair<Point,int>>& cells_pos);
     // return cell profit after put in cell
     int check_cell_cost_in_graph(int x, int y, int MCtype);
