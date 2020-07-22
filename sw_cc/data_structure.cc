@@ -884,7 +884,7 @@ void RoutingGraph::move_cells_force() {
         // test reroute
         bool routing_success = 1;
         for(auto& open_net : open_nets) {
-            cout << endl << get<0>(open_net) << " " << get<1>(open_net) << " " << get<2>(open_net) << endl;
+            cout << endl << "new from " << get<0>(open_net) << " to " << get<1>(open_net) << " " << get<2>(open_net) << endl;
             //Z_shape_routing(get<0>(open_net), get<1>(open_net), get<2>(open_net));
             unordered_map<Point,Point,MyHashFunction> visited_p;
             Point source = get<0>(open_net), sink = get<1>(open_net);
@@ -920,10 +920,11 @@ void RoutingGraph::move_cells_force() {
             for(auto& open_net : open_nets) {
                 auto& net = nets[get<2>(open_net)];
                 Point p1(cell_ori_x, cell_ori_y, get<0>(open_net).z);
-                cout << "re: " << p1 << " " << get<1>(open_net) << endl;
+                if(net.netId == 596)
+                    cout << "re: " << p1 << " " << get<1>(open_net) << endl;
                 net.branch_nodes[p1].node = get<3>(open_net);
-                int n;
-                /*for(n=0; n<net.branch_nodes[p1].neighbors.size(); n++) {
+                /*int n;
+                for(n=0; n<net.branch_nodes[p1].neighbors.size(); n++) {
                     if(net.branch_nodes[p1].neighbors[n].first == get<1>(open_net))
                         break;
                 }
@@ -931,9 +932,11 @@ void RoutingGraph::move_cells_force() {
                     net.branch_nodes[p1].neighbors.emplace_back(get<1>(open_net),get<4>(open_net));
                     net.branch_nodes[get<1>(open_net)].neighbors.emplace_back(p1,get<4>(open_net));
                 //}
-                // add two_pin demand into graph
+                // add two_pin demand into graph            
                 net.add_twopin_demand_into_graph(get<4>(open_net), grids);
             }
+            cout << "head: " << nets[596].branch_nodes.begin()->first << " " << nets[596].branch_nodes.begin()->second.neighbors.size() << endl;
+
         }
     }
 }
