@@ -176,6 +176,7 @@ public:
     int Z_shape_routing(Point source, Point sink, int NetId);
     bool A_star_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
     int check_segment_profit(Point from, Point to, int NetId);
+    TwoPinNet convert_path_to_twopin(Point source, Point sink, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
     Tree RSMT(std::vector<int> x, std::vector<int> y);
     int row, column, layer;
     int maxCellMove;
