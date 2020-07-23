@@ -856,6 +856,9 @@ bool sortbysec(const pair<Point,int> &a, const pair<Point,int> &b)
 
 void RoutingGraph::move_cells_force() {
     for(int cell_idx=0; cell_idx<cellInstances.size(); cell_idx++) {
+        cout << "Neighbor\n\n";
+        print_neighbors(nets[596]);
+        cout << "\n";
         if(this->movedCell.size() >= maxCellMove) return;
         Cell cell = cellInstances[cell_idx];
         if(cell_idx > 13) return;
@@ -889,6 +892,7 @@ void RoutingGraph::move_cells_force() {
         bool routing_success = 1;
         cout << "first open_nets size: " << open_nets.size() << endl;
         for(auto& open_net : open_nets) {
+            auto& net = nets[get<2>(open_net)];
             cout << endl << "new from " << get<0>(open_net) << " to " << get<1>(open_net) << " " << get<2>(open_net) << endl;
             //Z_shape_routing(get<0>(open_net), get<1>(open_net), get<2>(open_net));
             unordered_map<Point,Point,MyHashFunction> visited_p;
@@ -900,15 +904,18 @@ void RoutingGraph::move_cells_force() {
                 cout << "A star fail\n";
                 // reverse
                 routing_success = 0;
+                // add psudo neighbor
+                net.branch_nodes[source].neighbors.emplace_back(sink,TwoPinNet());
+                net.branch_nodes[sink].neighbors.emplace_back(source,TwoPinNet());
                 break;
             }
+            // success one net
             TwoPinNet two_pin = convert_path_to_twopin(source, sink, visited_p);
             cout << "Twopin:\n";
             for(auto& path : two_pin.paths) {
                 cout << path.first << " -> " << path.second << endl;
             }
             // rebuild branch_nodes
-            auto& net = nets[get<2>(open_net)];
             net.branch_nodes[source].node = get<3>(open_net);
             net.branch_nodes[source].neighbors.emplace_back(sink,two_pin);
             net.branch_nodes[sink].neighbors.emplace_back(source,two_pin);
