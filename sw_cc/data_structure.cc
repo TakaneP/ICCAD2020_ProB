@@ -858,7 +858,7 @@ void RoutingGraph::move_cells_force() {
     for(int cell_idx=0; cell_idx<cellInstances.size(); cell_idx++) {
         if(this->movedCell.size() >= maxCellMove) return;
         Cell cell = cellInstances[cell_idx];
-        if(cell_idx > 14) return;
+        if(cell_idx > 13) return;
         //if(cell_idx != 3 && cell_idx != 1) continue;
         int cell_ori_x = cell.x, cell_ori_y = cell.y;
         cout << "\ncell " << cell_idx << " (" << cell.x << "," << cell.y << ")\n";
@@ -887,6 +887,7 @@ void RoutingGraph::move_cells_force() {
         add_cell(to_p.x,to_p.y,cell_idx);
         // test reroute
         bool routing_success = 1;
+        cout << "first open_nets size: " << open_nets.size() << endl;
         for(auto& open_net : open_nets) {
             cout << endl << "new from " << get<0>(open_net) << " to " << get<1>(open_net) << " " << get<2>(open_net) << endl;
             //Z_shape_routing(get<0>(open_net), get<1>(open_net), get<2>(open_net));
@@ -921,21 +922,24 @@ void RoutingGraph::move_cells_force() {
             if(cell_ori_x == cell.originalX && cell_ori_y == cell.originalY)
                 movedCell.erase(cell_idx);
             add_cell(cell_ori_x,cell_ori_y,cell_idx);
+            cout << "open_nets size: " << open_nets.size() << endl;
             for(auto& open_net : open_nets) {
                 auto& net = nets[get<2>(open_net)];
                 Point p1(cell_ori_x, cell_ori_y, get<0>(open_net).z);
-                if(net.netId == 596)
-                    cout << "re: " << p1 << " " << get<1>(open_net) << endl;
+                cout << "re: " << p1 << " " << get<1>(open_net) << " net: " << get<2>(open_net) << endl;
                 net.branch_nodes[p1].node = get<3>(open_net);
-                /*int n;
+                int n;
                 for(n=0; n<net.branch_nodes[p1].neighbors.size(); n++) {
                     if(net.branch_nodes[p1].neighbors[n].first == get<1>(open_net))
                         break;
                 }
-                if(n != net.branch_nodes[p1].neighbors.size()) {*/
+                if(n == net.branch_nodes[p1].neighbors.size()) {
+                    if(get<1>(open_net) == Point(24,30,1)){
+                        cout << "Here\n";
+                    }
                     net.branch_nodes[p1].neighbors.emplace_back(get<1>(open_net),get<4>(open_net));
                     net.branch_nodes[get<1>(open_net)].neighbors.emplace_back(p1,get<4>(open_net));
-                //}
+                }
                 // add two_pin demand into graph            
                 net.add_twopin_demand_into_graph(get<4>(open_net), grids);
             }
