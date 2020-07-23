@@ -85,7 +85,13 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     construct_branch_nodes(routingTree);
     remove_dangling_wire(grids);
     //print_two_pins(routingTree);
+    if(this->netId == 595)
+        print_neighbors(*this);
     remove_branch_cycle(grids);
+    if(this->netId == 595) {
+        cout << "\nAfter\n\n";
+        print_neighbors(*this);
+    }
 }
 
 void Net::set_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, std::vector<Cell>& cellInstances, std::vector<MasterCell>& masterCells, 
@@ -411,17 +417,20 @@ void Net::remove_branch_cycle(vector<vector<vector<Gcell>>>& grids) {
         } 
         if(e1_iter!=visited_nodes.end() && e2_iter!=visited_nodes.end()) {
             //delete this edge in branch_nodes
+            int wire_len = edge.wire_length;
             auto& e1_treeNode = branch_nodes[edge.n1.p];
             auto& e2_treeNode = branch_nodes[edge.n2.p];
             for(int n=0; n<e1_treeNode.neighbors.size(); n++) {
-                if(e1_treeNode.neighbors[n].first == edge.n2.p) {
+                e1_treeNode.neighbors[n].second.update_wire_length();
+                if(e1_treeNode.neighbors[n].first == edge.n2.p && wire_len == e1_treeNode.neighbors[n].second.wire_length) {
                     del_twoPinNet_from_graph((e1_treeNode.neighbors.begin()+n)->second, grids); 
                     e1_treeNode.neighbors.erase(e1_treeNode.neighbors.begin()+n);
                     break;
                 }
             }
             for(int n=0; n<e2_treeNode.neighbors.size(); n++) {
-                if(e2_treeNode.neighbors[n].first == edge.n1.p) {
+                e2_treeNode.neighbors[n].second.update_wire_length();
+                if(e2_treeNode.neighbors[n].first == edge.n1.p && wire_len == e2_treeNode.neighbors[n].second.wire_length) {
                     e2_treeNode.neighbors.erase(e2_treeNode.neighbors.begin()+n);
                     break;
                 }
@@ -446,20 +455,14 @@ void Net::push_edge_in_queue(std::priority_queue<TwoPinNet, vector<TwoPinNet>, g
         auto& treenode = branch_nodes[bfs_p];
         // use map to solve multi-edge, and record less wire length edge
         unordered_map<Point,TwoPinNet,MyHashFunction> edges;
-        for(auto& neighbor : treenode.neighbors) {                     
+        for(auto& neighbor : treenode.neighbors) {
             if(visited_points.find(neighbor.first) != visited_points.end()) {
                 // visited before
                 continue;
             }
             neighbor.second.update_wire_length();
-            if(edges.find(neighbor.first) != edges.end()) {
-                if(edges[neighbor.first].wire_length > neighbor.second.wire_length)
-                    edges[neighbor.first] = neighbor.second;
-            }         
-        }
-        for(auto iter : edges) {
-            frontier_edges.push(iter.second);
-            traverse_points.insert(iter.first);
+            frontier_edges.push(neighbor.second);
+            traverse_points.insert(neighbor.first);
         }
         visited_points.insert(bfs_p);
     }
