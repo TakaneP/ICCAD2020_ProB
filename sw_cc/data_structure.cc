@@ -161,10 +161,10 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
         Point now_p = start_p;
         TwoPinNet segment;
         segment.n1.p = start_p;
-        if(localNets[{now_p.x, now_p.y, now_p.z}].size() > 1) {
-            segment.n1.type = 2;
+        if(segment.n1.mergedLocalPins.empty())
             segment.n1.mergedLocalPins = localNets[{now_p.x, now_p.y, now_p.z}];
-        }
+        
+        if(localNets[{now_p.x, now_p.y, now_p.z}].size() > 1) segment.n1.type = 2;
         else
             segment.n1.type = (is_pin) ? 1 : 0;
         std::pair<Point,Point> path;
@@ -180,10 +180,11 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
                 path.second = now_p;
                 segment.paths.push_back(path);
                 segment.n2.p = now_p;
-                if(localNets[{now_p.x, now_p.y, now_p.z}].size() > 1) {
-                    segment.n2.type = 2;
+                if(segment.n2.mergedLocalPins.empty())
                     segment.n2.mergedLocalPins = localNets[{now_p.x, now_p.y, now_p.z}];
-                }
+
+                if(localNets[{now_p.x, now_p.y, now_p.z}].size() > 1)
+                    segment.n2.type = 2;
                 else
                     segment.n2.type = (is_pin) ? 1 : 0;
                 if(!(segment.n1.p == segment.n2.p))
@@ -302,12 +303,12 @@ void Net::print_two_pins(std::vector<TwoPinNet>& routingTree) {
         for(auto path : twopin.paths) {
             cout << "path: " << path.first << " " << path.second << endl;
         }
-        if(twopin.n1.type == 2) {
+        if(twopin.n1.type == 2 || twopin.n1.type == 1) {
             cout << "local net Node1: \n";
             for(auto& pin : twopin.n1.mergedLocalPins) cout << "Cell " << pin.first+1 << " Pin " << pin.second+1  << " ";
             cout << "\n";
         }
-        if(twopin.n2.type == 2) {
+        if(twopin.n2.type == 2 || twopin.n2.type == 1) {
             cout << "local net Node2: \n";
             for(auto& pin : twopin.n2.mergedLocalPins) cout << "Cell " << pin.first+1 << " Pin " << pin.second+1 << " ";
             cout << "\n";
@@ -640,7 +641,12 @@ void RoutingGraph::add_cell(int x, int y, int cellIndex) {
             int netIndex = pin.connectedNet;
             if(netIndex != -1) {
                 Net& net = nets[netIndex];
-                auto treeNodePos = net.branch_nodes.find(Point(x, y, pin.layer));
+                TreeNode& treeNode = net.branch_nodes[Point(x, y, pin.layer)];
+                Node& node = treeNode.node;
+                node.mergedLocalPins.push_back({cellIndex, i});
+                if(node.type == 0) node.type = 1;
+                else if(node.type == 1 && node.mergedLocalPins.size() > 1) node.type = 2;
+                /*auto treeNodePos = net.branch_nodes.find(Point(x, y, pin.layer));
                 if(treeNodePos != net.branch_nodes.end()) {
                     TreeNode& treeNode = treeNodePos->second;
                     Node& node = treeNode.node;
@@ -648,7 +654,7 @@ void RoutingGraph::add_cell(int x, int y, int cellIndex) {
                     if(node.type == 0) node.type == 1;
                     else if(node.type == 1 && node.mergedLocalPins.size() > 1)
                         node.type = 2;
-                }
+                }*/
             }
         }
     }
@@ -934,7 +940,6 @@ void RoutingGraph::move_cells_force() {
                 net.add_twopin_demand_into_graph(get<4>(open_net), grids);
             }
             //cout << "head: " << nets[0].branch_nodes.begin()->first << " " << nets[0].branch_nodes.begin()->second.neighbors.size() << endl;
-            //print_neighbors(nets[0]);
         }
     }
 }
