@@ -139,7 +139,7 @@ struct Net{
 
 struct Cell : public MasterCell{
     Cell() {}
-    Cell(std::vector<Pin>& p, std::unordered_map<int, int> b, bool m, int _x, int _y, int mc): MasterCell(p,b), movable(m), x(_x), y(_y), mcType(mc) {
+    Cell(std::vector<Pin>& p, std::unordered_map<int, int>& b, bool m, int _x, int _y, int mc): MasterCell(p,b), movable(m), x(_x), y(_y), mcType(mc) {
         originalX = x;
         originalY = y;
     }
