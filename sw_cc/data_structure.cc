@@ -9,7 +9,7 @@ void print_neighbors(Net& n) {
     for(auto it = n.branch_nodes.begin(); it != n.branch_nodes.end(); ++it) {
         const Point& p = it->first;
         TreeNode& treeNode = it->second;
-        printf("Point %d %d %d:\n", p.x, p.y, p.z);
+        printf("Point %d %d %d type %d:\n", p.x, p.y, p.z, treeNode.node.type);
         for(auto _it = treeNode.neighbors.begin(); _it != treeNode.neighbors.end(); _it++) {
             printf("%d %d %d\n", _it->first.x, _it->first.y, _it->first.z);
         }
@@ -85,13 +85,7 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     construct_branch_nodes(routingTree);
     remove_dangling_wire(grids);
     //print_two_pins(routingTree);
-    if(this->netId == 598)
-        print_neighbors(*this);
     remove_branch_cycle(grids);
-    if(this->netId == 598) {
-        cout << "\nAfter\n\n";
-        print_neighbors(*this);
-    }
 }
 
 void Net::set_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, std::vector<Cell>& cellInstances, std::vector<MasterCell>& masterCells, 
@@ -898,6 +892,11 @@ void RoutingGraph::move_cells_force() {
                 Point neighbor_p = neighbor.first;
                 open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), neighbor_p, net.netId, net.branch_nodes[cell_p].node, neighbor.second);
             }        
+            cout << "size: " << net.branch_nodes[cell_p].neighbors.size() << " type: " << net.branch_nodes[cell_p].node.type << endl;
+            if(net.branch_nodes[cell_p].node.type == 2 && net.branch_nodes[cell_p].neighbors.empty()) {
+                cout << "HERE\n";
+                open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), Point(cell_ori_x,cell_ori_y,pin.layer), net.netId, Node(), TwoPinNet());
+            }
         }
         // delete cell neighbor two-pin
         del_cell_neighbor(cell_idx);
@@ -928,7 +927,6 @@ void RoutingGraph::move_cells_force() {
             }
             cout << "Source: " << source.x << " " << source.y << " " << source.z << "\n";
             // rebuild branch_nodes
-            //net.branch_nodes[source].node = get<3>(open_net);
             net.branch_nodes[source].neighbors.emplace_back(sink,two_pin);
             net.branch_nodes[sink].neighbors.emplace_back(source,two_pin);
             // add two_pin demand into graph
@@ -945,17 +943,15 @@ void RoutingGraph::move_cells_force() {
             for(auto& open_net : open_nets) {
                 auto& net = nets[get<2>(open_net)];
                 Point p1(cell_ori_x, cell_ori_y, get<0>(open_net).z);
+                if(p1 == get<1>(open_net)) 
+                    continue;
                 cout << "re: " << p1 << " " << get<1>(open_net) << " net: " << get<2>(open_net) << endl;
-                //net.branch_nodes[p1].node = get<3>(open_net);
                 int n;
                 for(n=0; n<net.branch_nodes[p1].neighbors.size(); n++) {
                     if(net.branch_nodes[p1].neighbors[n].first == get<1>(open_net))
                         break;
                 }
                 if(n == net.branch_nodes[p1].neighbors.size()) {
-                    if(get<1>(open_net) == Point(24,30,1)){
-                        cout << "Here\n";
-                    }
                     net.branch_nodes[p1].neighbors.emplace_back(get<1>(open_net),get<4>(open_net));
                     net.branch_nodes[get<1>(open_net)].neighbors.emplace_back(p1,get<4>(open_net));
                 }
