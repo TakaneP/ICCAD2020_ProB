@@ -56,23 +56,14 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
         Point p(cell.x,cell.y,layer);
         localNets[{cell.x, cell.y, layer}].push_back({cell_idx, pin_idx});
         pin_map.emplace(cell.x,cell.y,layer);
-        /*
-        if(pin_map.find(p) != pin_map.end()) {
-            // pin in same GCell
-            if (minRoutingLayer > layer && !checkRedundant[cell.x*row + cell.y]) {
-                steiner_map.emplace(cell.x,cell.y,minRoutingLayer);
-                checkRedundant[cell.x*row + cell.y] = true;   
-            }
-            TwoPinNet same_cell_net;
-            same_cell_net.n1.p = p;
-            same_cell_net.n1.type = 1;
-            same_cell_net.n2.p = p;
-            same_cell_net.n2.type = 1;
-            same_cell_net.paths.push_back(std::pair<Point,Point>(p,p));
-            routingTree.push_back(same_cell_net);
-        }
-        else 
-            pin_map.emplace(cell.x,cell.y,layer);*/
+    }
+    if(routingSegments.empty()) {
+        if(pin_map.empty()) return;
+        const Point& localPosition = *(pin_map.begin());
+        if(localNets[{localPosition.x, localPosition.y, localPosition.z}].size() == 1) branch_nodes[localPosition].node.type = 1;
+        else if(localNets[{localPosition.x, localPosition.y, localPosition.z}].size() > 1) branch_nodes[localPosition].node.type = 2;
+        branch_nodes[localPosition].node.mergedLocalPins = localNets[{localPosition.x, localPosition.y, localPosition.z}];
+        return;
     }
     // add segment in passingMap, and construct steiner_map
     set_passing_map(degreeMap, cellInstances, masterCells, pin_map, steiner_map, 1);
@@ -865,12 +856,12 @@ bool sortbysec(const pair<Point,int> &a, const pair<Point,int> &b)
 void RoutingGraph::move_cells_force() {
     for(int cell_idx=0; cell_idx<cellInstances.size(); cell_idx++) {
         cout << "Neighbors: \n";
-        print_neighbors(nets[598]);
+        //print_neighbors(nets[598]);
         cout << "\n\n";
         if(this->movedCell.size() >= maxCellMove) return;
         Cell cell = cellInstances[cell_idx];
         if(!cell.movable) continue;
-        if(cell_idx > 15) return;
+        if(cell_idx > 30) return;
         int cell_ori_x = cell.x, cell_ori_y = cell.y;
         cout << "\ncell " << cell_idx << " (" << cell.x << "," << cell.y << ")\n";
         vector<pair<Point,int>> cells_pos;
