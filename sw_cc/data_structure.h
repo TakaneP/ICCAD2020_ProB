@@ -62,6 +62,10 @@ struct Node{
     bool operator==(const Node& p2){
         return this->p == p2.p;
     }
+    Node() {
+        p = Point(0,0,0);
+        type = 0;
+    }
 };
 
 struct TwoPinNet{

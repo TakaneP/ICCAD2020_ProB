@@ -893,6 +893,7 @@ void RoutingGraph::move_cells_force() {
                 open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), neighbor_p, net.netId, net.branch_nodes[cell_p].node, neighbor.second);
             }        
             cout << "size: " << net.branch_nodes[cell_p].neighbors.size() << " type: " << net.branch_nodes[cell_p].node.type << endl;
+            cout << "local size: " << net.branch_nodes[cell_p].node.mergedLocalPins.size() << endl;
             if(net.branch_nodes[cell_p].node.type == 2 && net.branch_nodes[cell_p].neighbors.empty()) {
                 cout << "HERE\n";
                 open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), Point(cell_ori_x,cell_ori_y,pin.layer), net.netId, Node(), TwoPinNet());
