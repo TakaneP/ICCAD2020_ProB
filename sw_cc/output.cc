@@ -35,13 +35,22 @@ void output_file(RoutingGraph* routingGraph, string outputFile) {
             const Point& p = net.branch_nodes.begin()->first;
             DFS(storeSegments[i], visit, net.branch_nodes, p, numRoutes);
         }
-        if(storeSegments[i].empty() && net.minRoutingLayer > 0 && !net.pins.empty()) {
-            int cellidx = net.pins[0].first;
-            int pin = net.pins[0].second;
-            Cell& cell = routingGraph->cellInstances[cellidx];
-            int pinLayer = cell.pins[pin].layer;
-            if(net.minRoutingLayer > pinLayer) {
-                storeSegments[i].push_back({Point(cell.x, cell.y, pinLayer), Point(cell.x, cell.y, net.minRoutingLayer)});
+        if(net.minRoutingLayer > 0) {
+            map<pair<int, int>, set<int>> insertVias;
+            for(auto it = net.pins.begin(); it != net.pins.end(); ++it) {
+                int cellIdx = it->first;
+                int pinIdx = it->second;
+                Cell& cell = routingGraph->cellInstances[cellIdx];
+                Pin& pin = cell.pins[pinIdx];
+                if(pin.pseudo && pin.actualPinLayer < net.minRoutingLayer)
+                    insertVias[{cell.x, cell.y}].insert(pin.actualPinLayer);
+            }
+            for(auto it = insertVias.begin(); it != insertVias.end(); ++it) {
+                if(it->second.empty()) continue;
+                int minLayer = *(it->second.begin());
+                int x = it->first.first;
+                int y = it->first.second;
+                storeSegments[i].push_back({Point(x, y, minLayer), Point(x, y, net.minRoutingLayer)});
                 numRoutes++;
             }
         }
