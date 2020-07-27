@@ -14,10 +14,13 @@ struct TreeNode;
 struct Node;
 
 struct Pin{
-    Pin(): layer(-1), connectedNet(-1) {}
-    Pin(int l): layer(l), connectedNet(-1) {}
+    Pin(): layer(-1), connectedNet(-1), pseudo(0) {}
+    Pin(int l): layer(l), connectedNet(-1), pseudo(0) {}
+    Pin(int l, bool p, int a): layer(l), pseudo(p), actualPinLayer(a) {}
     int layer;
     int connectedNet;
+    bool pseudo;
+    int actualPinLayer; //Only if pin is pseudom used to output
 };
 
 struct MasterCell{

@@ -683,7 +683,7 @@ void RoutingGraph::add_cell(int x, int y, int cellIndex) {
     add_cell_demand_into_graph(x, y, cellInstances[cellIndex].mcType);
     //Update merged local pin
     Cell& cell = cellInstances[cellIndex];
-    if(nets.size() > 0) {
+    if(!nets.empty()) {
         for(int i = 0; i < cell.pins.size(); ++i) {
             Pin& pin = cell.pins[i];
             int netIndex = pin.connectedNet;
@@ -694,15 +694,11 @@ void RoutingGraph::add_cell(int x, int y, int cellIndex) {
                 node.mergedLocalPins.push_back({cellIndex, i});
                 if(node.type == 0) node.type = 1;
                 else if(node.type == 1 && node.mergedLocalPins.size() > 1) node.type = 2;
-                /*auto treeNodePos = net.branch_nodes.find(Point(x, y, pin.layer));
-                if(treeNodePos != net.branch_nodes.end()) {
-                    TreeNode& treeNode = treeNodePos->second;
-                    Node& node = treeNode.node;
-                    node.mergedLocalPins.push_back({cellIndex,i});
-                    if(node.type == 0) node.type == 1;
-                    else if(node.type == 1 && node.mergedLocalPins.size() > 1)
-                        node.type = 2;
-                }*/
+                if(pin.pseudo) {
+                    int actualLayer = pin.actualPinLayer;
+                    for(int j = actualLayer; j <= pin.layer; ++j)
+                        net.add_net_demand_into_graph(x, y, j, grids);
+                }
             }
         }
     }
@@ -738,9 +734,13 @@ void RoutingGraph::del_cell_neighbor(int cellIndex) {
         Point p = Point(x,y,pin.layer);
         if(netIndex != -1) {
             Net& net = nets[netIndex];
+            if(pin.pseudo) {
+                int actualLayer = pin.actualPinLayer;
+                for(int j = actualLayer; j <= pin.layer; ++j)
+                    net.del_seg_demand_from_graph(x, y, j, grids);
+            }
             if(net.branch_nodes.empty() || net.branch_nodes.find(p) == net.branch_nodes.end()) continue;
             TreeNode& treeNode = net.branch_nodes[p];
-            //if(treeNode.neighbors.empty()) continue;
             if(treeNode.node.type == 2) {
                 for(auto it = treeNode.node.mergedLocalPins.begin(); it != treeNode.node.mergedLocalPins.end();) {
                     if(it->first == cellIndex && it->second == i)
@@ -764,15 +764,6 @@ void RoutingGraph::del_cell_neighbor(int cellIndex) {
                     }
                 }
             }
-            /*const Point& neighbor = treeNode.neighbors[0].first;
-            net.del_twoPinNet_from_graph(treeNode.neighbors[0].second, grids);
-            TreeNode& neighborTreeNode = net.branch_nodes[neighbor];
-            for(int j = 0; j < neighborTreeNode.neighbors.size(); ++j) {
-                if(neighborTreeNode.neighbors[j].first == p) {
-                    neighborTreeNode.neighbors.erase(neighborTreeNode.neighbors.begin() + j);
-                    break;
-                }
-            }*/
             net.branch_nodes.erase(p);
         }
     }
@@ -915,13 +906,10 @@ bool sortbysec(const pair<Point,int> &a, const pair<Point,int> &b)
 
 void RoutingGraph::move_cells_force() {
     for(int cell_idx=0; cell_idx<cellInstances.size(); cell_idx++) {
-        cout << "Neighbors: \n";
-        //print_neighbors(nets[598]);
-        cout << "\n\n";
         if(this->movedCell.size() >= maxCellMove) return;
         Cell cell = cellInstances[cell_idx];
         if(!cell.movable) continue;
-        if(cell_idx > 500) return;
+        if(cell_idx > 435) return;
         int cell_ori_x = cell.x, cell_ori_y = cell.y;
         cout << "\ncell " << cell_idx << " (" << cell.x << "," << cell.y << ")\n";
         vector<pair<Point,int>> cells_pos;
