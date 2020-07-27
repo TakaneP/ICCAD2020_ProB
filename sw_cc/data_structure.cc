@@ -779,14 +779,17 @@ void Net::add_twopin_demand_into_graph(TwoPinNet& twoPinNet, vector<vector<vecto
         Point& start = it->first;
         Point& end = it->second;
         if(start.x != end.x) {
+            if(start.x > end.x) swap(start.x, end.x);
             for(int i = start.x; i <= end.x; ++i)
                 add_net_demand_into_graph(i, start.y, start.z, grids);
         }
         else if(start.y != end.y) {
+            if(start.y > end.y) swap(start.y, end.y);
             for(int i = start.y; i <= end.y; ++i)
                 add_net_demand_into_graph(start.x, i, start.z, grids);
         }
         else if(start.z != end.z) {
+            if(start.z > end.z) swap(start.z, end.z);
             for(int i = start.z; i <= end.z; ++i)
                 add_net_demand_into_graph(start.x, start.y, i, grids);
         }
@@ -909,7 +912,7 @@ void RoutingGraph::move_cells_force() {
         if(this->movedCell.size() >= maxCellMove) return;
         Cell cell = cellInstances[cell_idx];
         if(!cell.movable) continue;
-        if(cell_idx > 435) return;
+        if(cell_idx > 524) return;
         int cell_ori_x = cell.x, cell_ori_y = cell.y;
         cout << "\ncell " << cell_idx << " (" << cell.x << "," << cell.y << ")\n";
         vector<pair<Point,int>> cells_pos;
@@ -1177,7 +1180,7 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
     }
     if(max_l < min_l) return 0;
     priority_queue<pair<Point,int>> p_q;
-    auto& gcell = grids[source.x][source.y][source.z];
+    Gcell& gcell = grids[source.x][source.y][source.z];
     int wire_length = 1;
     if(gcell.passingNets.find(NetId) != gcell.passingNets.end())
         wire_length = 0;
@@ -1197,78 +1200,78 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
         // up
         if(f_point.z%2==1 && f_point.x < max_x) {
             Point new_p(f_point.x+1,f_point.y,f_point.z);
-            auto& new_gcell = grids[f_point.x+1][f_point.y][f_point.z];
+            Gcell& new_gcell = grids[f_point.x+1][f_point.y][f_point.z];
             int wire_length = 1;
-            if(gcell.passingNets.find(NetId) != gcell.passingNets.end())
+            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
                 wire_length = 0;
-            int remain = gcell.capacity-gcell.demand-wire_length;
+            int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {              
-                p_q.emplace(new_p, gcell.demand+wire_length+distance(new_p,sink));
+                p_q.emplace(new_p, new_gcell.demand+wire_length+distance(new_p,sink));
                 visited_p[new_p] = f_point;
             }
         }
         // down
         if(f_point.z%2==1 && f_point.x > min_x) {
             Point new_p(f_point.x-1,f_point.y,f_point.z);
-            auto& new_gcell = grids[f_point.x-1][f_point.y][f_point.z];
+            Gcell& new_gcell = grids[f_point.x-1][f_point.y][f_point.z];
             int wire_length = 1;
-            if(gcell.passingNets.find(NetId) != gcell.passingNets.end())
+            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
                 wire_length = 0;
-            int remain = gcell.capacity-gcell.demand-wire_length;
+            int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
-                p_q.emplace(new_p, gcell.demand+wire_length+distance(new_p,sink));
+                p_q.emplace(new_p, new_gcell.demand+wire_length+distance(new_p,sink));
                 visited_p[new_p] = f_point;
             }
         }
         // right
         if(f_point.z%2==0 && f_point.y < max_y) {
             Point new_p(f_point.x,f_point.y+1,f_point.z);
-            auto& new_gcell = grids[f_point.x][f_point.y+1][f_point.z];
+            Gcell& new_gcell = grids[f_point.x][f_point.y+1][f_point.z];
             int wire_length = 1;
-            if(gcell.passingNets.find(NetId) != gcell.passingNets.end())
+            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
                 wire_length = 0;
-            int remain = gcell.capacity-gcell.demand-wire_length;
+            int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
-                p_q.emplace(new_p, gcell.demand+wire_length+distance(new_p,sink));
+                p_q.emplace(new_p, new_gcell.demand+wire_length+distance(new_p,sink));
                 visited_p[new_p] = f_point;
             }
         }
         // left
         if(f_point.z%2==0 && f_point.y > min_y) {
             Point new_p(f_point.x,f_point.y-1,f_point.z);
-            auto& new_gcell = grids[f_point.x][f_point.y-1][f_point.z];
+            Gcell& new_gcell = grids[f_point.x][f_point.y-1][f_point.z];
             int wire_length = 1;
-            if(gcell.passingNets.find(NetId) != gcell.passingNets.end())
+            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
                 wire_length = 0;
-            int remain = gcell.capacity-gcell.demand-wire_length;
+            int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
-                p_q.emplace(new_p, gcell.demand+wire_length+distance(new_p,sink));
+                p_q.emplace(new_p, new_gcell.demand+wire_length+distance(new_p,sink));
                 visited_p[new_p] = f_point;
             }
         }
         // top
         if(f_point.z < max_l) {
             Point new_p(f_point.x,f_point.y,f_point.z+1);
-            auto& new_gcell = grids[f_point.x][f_point.y][f_point.z+1];
+            Gcell& new_gcell = grids[f_point.x][f_point.y][f_point.z+1];
             int wire_length = 1;
-            if(gcell.passingNets.find(NetId) != gcell.passingNets.end())
+            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
                 wire_length = 0;
-            int remain = gcell.capacity-gcell.demand-wire_length;
+            int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
-                p_q.emplace(new_p, gcell.demand+wire_length+distance(new_p,sink));
+                p_q.emplace(new_p, new_gcell.demand+wire_length+distance(new_p,sink));
                 visited_p[new_p] = f_point;
             }
         }
         // down
         if(f_point.z > min_l) {
             Point new_p(f_point.x,f_point.y,f_point.z-1);
-            auto& new_gcell = grids[f_point.x][f_point.y][f_point.z-1];
+            Gcell& new_gcell = grids[f_point.x][f_point.y][f_point.z-1];
             int wire_length = 1;
-            if(gcell.passingNets.find(NetId) != gcell.passingNets.end())
+            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
                 wire_length = 0;
-            int remain = gcell.capacity-gcell.demand-wire_length;
+            int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
-                p_q.emplace(new_p, gcell.demand+wire_length+distance(new_p,sink));
+                p_q.emplace(new_p, new_gcell.demand+wire_length+distance(new_p,sink));
                 visited_p[new_p] = f_point;
             }
         }
