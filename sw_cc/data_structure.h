@@ -43,6 +43,9 @@ struct Point{
     Point operator+(const Point& p2) const{
         return Point(this->x+p2.x, this->y+p2.y, this->z+p2.z);
     }
+    Point operator-(const Point& p2) const{
+        return Point(this->x-p2.x, this->y-p2.y, this->z-p2.z);
+    }
     bool operator<=(const Point& p2) const{
         return (this->x<=p2.x) && (this->y<=p2.y) && (this->z<=p2.z);
     }
@@ -66,6 +69,7 @@ struct Node{
         p = Point(0,0,0);
         type = 0;
     }
+    Node(Point point, int type): p(point), type(type) {}
 };
 
 struct TwoPinNet{
@@ -131,14 +135,13 @@ struct Net{
     // construct MST to remove cycle in branch_nodes
     void remove_branch_cycle(std::vector<std::vector<std::vector<Gcell>>>& grids);
     void push_edge_in_queue(std::priority_queue<TwoPinNet, std::vector<TwoPinNet>, std::greater<TwoPinNet>>& frontier_edges);
-    // merge degree 2 steiner node
-    void merge_steiner_path(Point p, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void del_net_from_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void del_seg_demand(std::pair<Point,Point> segment, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void del_seg_demand_from_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void del_twoPinNet_from_graph(TwoPinNet& twoPinNet, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void add_net_demand_into_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void add_twopin_demand_into_graph(TwoPinNet& twoPinNet, std::vector<std::vector<std::vector<Gcell>>>& grids);
+    void insert_steiner_point(Point p, TwoPinNet& twopin);
 };
 
 struct Cell : public MasterCell{

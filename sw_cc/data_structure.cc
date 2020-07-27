@@ -24,6 +24,10 @@ bool operator<(const pair<Point,int>& p1, const pair<Point,int>& p2) {
     return p1.second < p2.second;
 }
 
+bool in_range(int target, int a, int b) {
+    return target >= min(a,b) && target < max(a,b);
+}
+
 int distance(const Point& p1, const Point& p2) {
     return abs((p1.x-p2.x)) + abs((p1.y-p2.y)) + abs((p1.z-p2.z));
 }
@@ -527,6 +531,62 @@ void Net::clear_steiner_point(Point p, vector<vector<vector<Gcell>>>& grids) {
     branch_nodes.erase(p);
 }
 
+void Net::insert_steiner_point(Point p, TwoPinNet& twopin) {
+    auto b_node_iter = branch_nodes.find(p);
+    if(b_node_iter != branch_nodes.end()) {
+        if(b_node_iter->second.node.type == 0) {
+            // steiner point already exist
+            cout << "already exist\n";
+        } else {
+            // local pin
+            cout << "local pin\n";
+        }
+        return;
+    }
+    unordered_set<Point, MyHashFunction> used_points;
+    for(auto& branch_node : this->branch_nodes) {
+        for(auto& neighbor : branch_node.second.neighbors) {
+            // traverse before
+            if(used_points.find(neighbor.first) != used_points.end())
+                continue;
+            used_points.insert(neighbor.first);
+            vector<pair<Point,Point>>& ori_paths = neighbor.second.paths;
+            for(int path_idx=0; path_idx<ori_paths.size(); path_idx++) {
+                auto& path = ori_paths[path_idx];
+                Point dir = path.first - path.second;
+                cout << "dir: " << dir << endl;
+                if( (dir.x != 0 && in_range(p.x, path.first.x, path.second.x)) ||
+                    (dir.y != 0 && in_range(p.y, path.first.y, path.second.y)) ||
+                    (dir.z != 0 && in_range(p.z, path.first.z, path.second.z)) ) {
+                    // divide path
+                    cout << "here\n";
+                    if(p != path.first && p != path.second) {
+                        cout << "first " << path.first << " " << path.second << endl;
+                        path.second = p;
+                        ori_paths.insert(ori_paths.begin()+path_idx+1, {p, path.second});
+                    }
+
+                    /*vector<pair<Point,Point>> new_paths(ori_paths.begin()+path_idx+1, ori_paths.end());
+                    ori_paths.erase(ori_paths.begin()+path_idx+1, ori_paths.end());
+                    // insert new steiner point
+                    Node new_steiner_p(p,0);
+                    branch_nodes[p].node = new_steiner_p;
+                    branch_nodes[p].neighbors.resize(2);
+                    branch_nodes[p].neighbors[0].first = branch_node.first;
+                    branch_nodes[p].neighbors[1].first = neighbor.first;
+                    branch_nodes[p].neighbors[0].second = neighbor.second;
+                    TwoPinNet& new_two_pin = branch_nodes[p].neighbors[1].second;
+                    new_two_pin.n1 = new_steiner_p;
+                    new_two_pin.n2 = neighbor.second.n2;
+                    new_two_pin.paths = new_paths;
+                    neighbor.second.n2 = new_steiner_p;*/
+                    return;
+                }
+            }
+        }
+    }
+}
+
 RoutingGraph::RoutingGraph(): usedCellMove(0) {segmentTree = new SegmentTree(*this);}
 RoutingGraph::~RoutingGraph() {delete segmentTree;}
 
@@ -861,7 +921,7 @@ void RoutingGraph::move_cells_force() {
         if(this->movedCell.size() >= maxCellMove) return;
         Cell cell = cellInstances[cell_idx];
         if(!cell.movable) continue;
-        if(cell_idx > 30) return;
+        if(cell_idx > 500) return;
         int cell_ori_x = cell.x, cell_ori_y = cell.y;
         cout << "\ncell " << cell_idx << " (" << cell.x << "," << cell.y << ")\n";
         vector<pair<Point,int>> cells_pos;
@@ -1097,6 +1157,8 @@ int RoutingGraph::check_cell_cost_in_graph(int x, int y, int MCtype) {
     int profit = 0;
     for(int n=0; n<layer_remain.size(); n++) {           
         profit += layer_remain[n];
+        if(layer_remain[n] < 0)
+            return -1;
     }
     return profit;
 }
