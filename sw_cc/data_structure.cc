@@ -32,6 +32,10 @@ int distance(const Point& p1, const Point& p2) {
     return abs((p1.x-p2.x)) + abs((p1.y-p2.y)) + abs((p1.z-p2.z));
 }
 
+Point norm(const Point& p) {
+    return Point( (p.x!=0), (p.y!=0), (p.z!=0) );
+}
+
 size_t MyHashFunction::operator()(const Point& p) const {
     return (p.x+p.y*2000+p.z*2000*2000);
 }
@@ -553,8 +557,11 @@ void Net::insert_steiner_point(Point p, TwoPinNet& twopin) {
             vector<pair<Point,Point>>& ori_paths = neighbor.second.paths;
             for(int path_idx=0; path_idx<ori_paths.size(); path_idx++) {
                 auto& path = ori_paths[path_idx];
-                Point dir = path.first - path.second;
-                cout << "dir: " << dir << endl;
+                Point dir = norm(path.first - path.second);
+                Point p_dir = norm(p - path.first);
+                cout << "dir: " << dir << " p_dir: " << p_dir << endl;
+                if(dir != p_dir)
+                    continue;
                 if( (dir.x != 0 && in_range(p.x, path.first.x, path.second.x)) ||
                     (dir.y != 0 && in_range(p.y, path.first.y, path.second.y)) ||
                     (dir.z != 0 && in_range(p.z, path.first.z, path.second.z)) ) {
@@ -562,8 +569,9 @@ void Net::insert_steiner_point(Point p, TwoPinNet& twopin) {
                     cout << "here\n";
                     if(p != path.first && p != path.second) {
                         cout << "first " << path.first << " " << path.second << endl;
+                        Point tmp_second = path.second;
                         path.second = p;
-                        ori_paths.insert(ori_paths.begin()+path_idx+1, {p, path.second});
+                        ori_paths.insert(ori_paths.begin()+path_idx+1, {p, tmp_second});
                     }
 
                     /*vector<pair<Point,Point>> new_paths(ori_paths.begin()+path_idx+1, ori_paths.end());
@@ -934,10 +942,7 @@ void RoutingGraph::move_cells_force() {
                 Point neighbor_p = neighbor.first;
                 open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), neighbor_p, net.netId, net.branch_nodes[cell_p].node, neighbor.second);
             }        
-            cout << "size: " << net.branch_nodes[cell_p].neighbors.size() << " type: " << net.branch_nodes[cell_p].node.type << endl;
-            cout << "local size: " << net.branch_nodes[cell_p].node.mergedLocalPins.size() << endl;
             if(net.branch_nodes[cell_p].node.type == 2 && net.branch_nodes[cell_p].neighbors.empty()) {
-                cout << "HERE\n";
                 open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), Point(cell_ori_x,cell_ori_y,pin.layer), net.netId, Node(), TwoPinNet());
             }
         }
@@ -946,7 +951,6 @@ void RoutingGraph::move_cells_force() {
         add_cell(to_p.x,to_p.y,cell_idx);
         // test reroute
         bool routing_success = 1;
-        cout << "first open_nets size: " << open_nets.size() << endl;
         for(auto& open_net : open_nets) {
             auto& net = nets[get<2>(open_net)];
             cout << endl << "new from " << get<0>(open_net) << " to " << get<1>(open_net) << " " << get<2>(open_net) << endl;
