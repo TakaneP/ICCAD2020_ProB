@@ -177,13 +177,19 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
                 segment.n2.p = now_p;
                 if(segment.n2.mergedLocalPins.empty())
                     segment.n2.mergedLocalPins = localNets[{now_p.x, now_p.y, now_p.z}];
-
                 if(localNets[{now_p.x, now_p.y, now_p.z}].size() > 1)
                     segment.n2.type = 2;
                 else
                     segment.n2.type = (is_pin) ? 1 : 0;
                 if(!(segment.n1.p == segment.n2.p))
-                    routingTree.push_back(segment);              
+                    routingTree.push_back(segment);
+                else {
+                    if(!localNets[{segment.n1.p.x, segment.n1.p.y, segment.n1.p.z}].empty()) {
+                        branch_nodes[segment.n1.p].node.mergedLocalPins = localNets[{segment.n1.p.x, segment.n1.p.y, segment.n1.p.z}];
+                        if(branch_nodes[segment.n1.p].node.mergedLocalPins.size() > 1) branch_nodes[segment.n1.p].node.type = 2;
+                        else branch_nodes[segment.n1.p].node.type = 1;
+                    }
+                }
                 traverse_passing_map(degreeMap, pin_map, steiner_map, now_p, localNets, routingTree, grids);
                 break;
             }
@@ -769,6 +775,65 @@ void RoutingGraph::del_cell_neighbor(int cellIndex) {
     }
 }
 
+void RoutingGraph::del_cell_last_k_neighbor(int cellIndex, unordered_map<int, int>& netK) {
+    Cell& cell = cellInstances[cellIndex];
+    int x = cell.x;
+    int y = cell.y;
+    placement[x][y].erase(cellIndex);
+    del_cell_demand_from_graph(x, y, cellInstances[cellIndex].mcType);
+    for(int i = 0; i < cell.pins.size(); ++i) {
+        Pin& pin = cell.pins[i];
+        int netIndex = pin.connectedNet;
+        Point p = Point(x,y,pin.layer);
+        if(netIndex != -1) {
+            Net& net = nets[netIndex];
+            if(pin.pseudo) {
+                int actualLayer = pin.actualPinLayer;
+                for(int j = actualLayer; j <= pin.layer; ++j)
+                    net.del_seg_demand_from_graph(x, y, j, grids);
+            }
+            if(net.branch_nodes.empty() || net.branch_nodes.find(p) == net.branch_nodes.end()) continue;
+            TreeNode& treeNode = net.branch_nodes[p];
+            if(treeNode.neighbors.empty()) {
+                net.branch_nodes.erase(p);
+                continue;
+            }
+            unordered_map<int, int>::iterator pos = netK.find(netIndex);
+            if(pos == netK.end()) continue;
+            int numberToDelete = pos->second;
+            for(int j = 0; j < numberToDelete; j++) {
+                pair<Point, TwoPinNet>& lastElement = treeNode.neighbors.back();
+                Point& neighbor = lastElement.first;
+                net.del_twoPinNet_from_graph(lastElement.second, grids);
+                TreeNode& neighborTreeNode = net.branch_nodes[neighbor];
+                for(int k = neighborTreeNode.neighbors.size() - 1; k >= 0; --k) {
+                    if(neighborTreeNode.neighbors[k].first == p) {
+                        neighborTreeNode.neighbors.erase(neighborTreeNode.neighbors.begin()+k);
+                        break;
+                    }
+                }
+                treeNode.neighbors.pop_back();
+            }
+            netK.erase(pos);
+            for(auto it = treeNode.node.mergedLocalPins.begin(); it != treeNode.node.mergedLocalPins.end();) {
+                if(it->first == cellIndex)
+                    it = treeNode.node.mergedLocalPins.erase(it);
+                else ++it;
+            }
+            if(treeNode.node.mergedLocalPins.size() == 1)
+                treeNode.node.type = 1;
+
+            if(treeNode.node.mergedLocalPins.size() >= 1)
+                continue;
+
+            if(treeNode.neighbors.empty())
+                net.branch_nodes.erase(p);
+            else
+                treeNode.node.type = 0;
+        }
+    }
+}
+
 void Net::add_net_demand_into_graph(int x, int y, int z, vector<vector<vector<Gcell>>>& grids) {
     if(grids[x][y][z].passingNets[netId]++ == 0) //every pin and segment contribute 1 to passingNet
         grids[x][y][z].demand++;
@@ -909,10 +974,11 @@ bool sortbysec(const pair<Point,int> &a, const pair<Point,int> &b)
 
 void RoutingGraph::move_cells_force() {
     for(int cell_idx=0; cell_idx<cellInstances.size(); cell_idx++) {
+        unordered_map<int, int> netK;
         if(this->movedCell.size() >= maxCellMove) return;
         Cell cell = cellInstances[cell_idx];
         if(!cell.movable) continue;
-        if(cell_idx > 524) return;
+        //if(cell_idx > 1217) return;
         int cell_ori_x = cell.x, cell_ori_y = cell.y;
         cout << "\ncell " << cell_idx << " (" << cell.x << "," << cell.y << ")\n";
         vector<pair<Point,int>> cells_pos;
@@ -943,7 +1009,9 @@ void RoutingGraph::move_cells_force() {
         }
         // delete cell neighbor two-pin
         del_cell_neighbor(cell_idx);
+        //print_neighbors(nets[1218]);
         add_cell(to_p.x,to_p.y,cell_idx);
+        //print_neighbors(nets[1218]);
         // test reroute
         bool routing_success = 1;
         cout << "first open_nets size: " << open_nets.size() << endl;
@@ -974,14 +1042,17 @@ void RoutingGraph::move_cells_force() {
             net.branch_nodes[sink].neighbors.emplace_back(source,two_pin);
             // add two_pin demand into graph
             net.add_twopin_demand_into_graph(two_pin, grids);
+            netK[net.netId]++;
         }
         if(routing_success)
             movedCell.insert(cell_idx);
         else {
-            del_cell_neighbor(cell_idx);
+            del_cell_last_k_neighbor(cell_idx, netK);
+            //print_neighbors(nets[1218]);
             if(cell_ori_x == cell.originalX && cell_ori_y == cell.originalY)
                 movedCell.erase(cell_idx);
             add_cell(cell_ori_x,cell_ori_y,cell_idx);
+            //print_neighbors(nets[1218]);
             cout << "open_nets size: " << open_nets.size() << endl;
             for(auto& open_net : open_nets) {
                 auto& net = nets[get<2>(open_net)];

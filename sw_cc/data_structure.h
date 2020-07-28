@@ -178,6 +178,7 @@ public:
     void add_cell_demand_into_graph(int x, int y, int MCtype);
     void del_cell_demand_from_graph(int x, int y, int MCtype);
     void del_cell_neighbor(int cellIndex);
+    void del_cell_last_k_neighbor(int cellIndex, std::unordered_map<int, int>& netK); //key: netId, value: delete last k neighbors for that net
     void construct_2pin_nets();
     void move_cells_force();
     void reroute_all_net();
