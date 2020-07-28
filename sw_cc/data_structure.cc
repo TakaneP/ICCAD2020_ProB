@@ -32,6 +32,10 @@ int distance(const Point& p1, const Point& p2) {
     return abs((p1.x-p2.x)) + abs((p1.y-p2.y)) + abs((p1.z-p2.z));
 }
 
+Point norm(const Point& p) {
+    return Point( (p.x!=0), (p.y!=0), (p.z!=0) );
+}
+
 size_t MyHashFunction::operator()(const Point& p) const {
     return (p.x+p.y*2000+p.z*2000*2000);
 }
@@ -335,7 +339,13 @@ void Net::construct_branch_nodes(std::vector<TwoPinNet>& routingTree) {
             p2_ptr = branch_nodes.find(p2);
         }
         p1_ptr->second.neighbors.push_back(make_pair(p2,twopin));
-        p2_ptr->second.neighbors.push_back(make_pair(p1,twopin));
+        TwoPinNet r_twopin;
+        r_twopin.n1 = twopin.n2;
+        r_twopin.n2 = twopin.n1;
+        r_twopin.paths.insert(r_twopin.paths.begin(), twopin.paths.rbegin(), twopin.paths.rend());
+        for(auto& path : r_twopin.paths)
+            swap(path.first, path.second);
+        p2_ptr->second.neighbors.push_back(make_pair(p1,r_twopin));
     }  
 }
 
@@ -559,33 +569,51 @@ void Net::insert_steiner_point(Point p, TwoPinNet& twopin) {
             vector<pair<Point,Point>>& ori_paths = neighbor.second.paths;
             for(int path_idx=0; path_idx<ori_paths.size(); path_idx++) {
                 auto& path = ori_paths[path_idx];
-                Point dir = path.first - path.second;
-                cout << "dir: " << dir << endl;
+                Point dir = norm(path.first - path.second);
+                Point p_dir = norm(p - path.first);
+                Point tmp_first = path.first, tmp_second = path.second;
+                if(dir != p_dir)
+                    continue;
                 if( (dir.x != 0 && in_range(p.x, path.first.x, path.second.x)) ||
                     (dir.y != 0 && in_range(p.y, path.first.y, path.second.y)) ||
                     (dir.z != 0 && in_range(p.z, path.first.z, path.second.z)) ) {
-                    // divide path
-                    cout << "here\n";
-                    if(p != path.first && p != path.second) {
-                        cout << "first " << path.first << " " << path.second << endl;
+                    // divide path                  
+                    if(p != path.first && p != path.second) {               
                         path.second = p;
-                        ori_paths.insert(ori_paths.begin()+path_idx+1, {p, path.second});
+                        ori_paths.insert(ori_paths.begin()+path_idx+1, {p, tmp_second});
                     }
-
-                    /*vector<pair<Point,Point>> new_paths(ori_paths.begin()+path_idx+1, ori_paths.end());
+                    vector<pair<Point,Point>> new_paths(ori_paths.begin()+path_idx+1, ori_paths.end());
                     ori_paths.erase(ori_paths.begin()+path_idx+1, ori_paths.end());
                     // insert new steiner point
                     Node new_steiner_p(p,0);
+                    Point ori_left_p = branch_node.first, ori_right_p = neighbor.first;
                     branch_nodes[p].node = new_steiner_p;
                     branch_nodes[p].neighbors.resize(2);
-                    branch_nodes[p].neighbors[0].first = branch_node.first;
-                    branch_nodes[p].neighbors[1].first = neighbor.first;
+                    branch_nodes[p].neighbors[0].first = ori_left_p;
+                    branch_nodes[p].neighbors[1].first = ori_right_p;
                     branch_nodes[p].neighbors[0].second = neighbor.second;
+                    Node tmp_right_node = neighbor.second.n2;
+                    // find left neighbor to update
+                    for(int n=0; n<branch_nodes[ori_left_p].neighbors.size(); n++) {
+                        if(branch_nodes[ori_left_p].neighbors[n].first == ori_right_p) {
+                            branch_nodes[ori_left_p].neighbors[n].first = p;
+                            branch_nodes[ori_left_p].neighbors[n].second.n2.p = p;
+                            branch_nodes[p].neighbors[0].second = branch_nodes[ori_left_p].neighbors[n].second;
+                        }
+                    }
+                    // update right two_pin
                     TwoPinNet& new_two_pin = branch_nodes[p].neighbors[1].second;
                     new_two_pin.n1 = new_steiner_p;
-                    new_two_pin.n2 = neighbor.second.n2;
+                    new_two_pin.n2 = tmp_right_node;
                     new_two_pin.paths = new_paths;
-                    neighbor.second.n2 = new_steiner_p;*/
+                    neighbor.second.n2 = new_steiner_p;
+                    // find right neighbor to update
+                    for(int n=0; n<branch_nodes[ori_right_p].neighbors.size(); n++) {
+                        if(branch_nodes[ori_right_p].neighbors[n].first == ori_left_p) {
+                            branch_nodes[ori_right_p].neighbors[n].first = p;
+                            branch_nodes[ori_right_p].neighbors[n].second = new_two_pin;
+                        }
+                    }
                     return;
                 }
             }
@@ -1000,10 +1028,7 @@ void RoutingGraph::move_cells_force() {
                 Point neighbor_p = neighbor.first;
                 open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), neighbor_p, net.netId, net.branch_nodes[cell_p].node, neighbor.second);
             }        
-            cout << "size: " << net.branch_nodes[cell_p].neighbors.size() << " type: " << net.branch_nodes[cell_p].node.type << endl;
-            cout << "local size: " << net.branch_nodes[cell_p].node.mergedLocalPins.size() << endl;
             if(net.branch_nodes[cell_p].node.type == 2 && net.branch_nodes[cell_p].neighbors.empty()) {
-                cout << "HERE\n";
                 open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), Point(cell_ori_x,cell_ori_y,pin.layer), net.netId, Node(), TwoPinNet());
             }
         }
@@ -1014,7 +1039,6 @@ void RoutingGraph::move_cells_force() {
         //print_neighbors(nets[1218]);
         // test reroute
         bool routing_success = 1;
-        cout << "first open_nets size: " << open_nets.size() << endl;
         for(auto& open_net : open_nets) {
             auto& net = nets[get<2>(open_net)];
             cout << endl << "new from " << get<0>(open_net) << " to " << get<1>(open_net) << " " << get<2>(open_net) << endl;
