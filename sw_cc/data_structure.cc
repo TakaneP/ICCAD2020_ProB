@@ -333,7 +333,13 @@ void Net::construct_branch_nodes(std::vector<TwoPinNet>& routingTree) {
             p2_ptr = branch_nodes.find(p2);
         }
         p1_ptr->second.neighbors.push_back(make_pair(p2,twopin));
-        p2_ptr->second.neighbors.push_back(make_pair(p1,twopin));
+        TwoPinNet r_twopin;
+        r_twopin.n1 = twopin.n2;
+        r_twopin.n2 = twopin.n1;
+        r_twopin.paths.insert(r_twopin.paths.begin(), twopin.paths.rbegin(), twopin.paths.rend());
+        for(auto& path : r_twopin.paths)
+            swap(path.first, path.second);
+        p2_ptr->second.neighbors.push_back(make_pair(p1,r_twopin));
     }  
 }
 
