@@ -559,35 +559,49 @@ void Net::insert_steiner_point(Point p, TwoPinNet& twopin) {
                 auto& path = ori_paths[path_idx];
                 Point dir = norm(path.first - path.second);
                 Point p_dir = norm(p - path.first);
-                cout << "dir: " << dir << " p_dir: " << p_dir << endl;
+                Point tmp_first = path.first, tmp_second = path.second;
                 if(dir != p_dir)
                     continue;
                 if( (dir.x != 0 && in_range(p.x, path.first.x, path.second.x)) ||
                     (dir.y != 0 && in_range(p.y, path.first.y, path.second.y)) ||
                     (dir.z != 0 && in_range(p.z, path.first.z, path.second.z)) ) {
-                    // divide path
-                    cout << "here\n";
-                    if(p != path.first && p != path.second) {
-                        cout << "first " << path.first << " " << path.second << endl;
-                        Point tmp_second = path.second;
+                    // divide path                  
+                    if(p != path.first && p != path.second) {               
                         path.second = p;
                         ori_paths.insert(ori_paths.begin()+path_idx+1, {p, tmp_second});
                     }
-
-                    /*vector<pair<Point,Point>> new_paths(ori_paths.begin()+path_idx+1, ori_paths.end());
+                    vector<pair<Point,Point>> new_paths(ori_paths.begin()+path_idx+1, ori_paths.end());
                     ori_paths.erase(ori_paths.begin()+path_idx+1, ori_paths.end());
                     // insert new steiner point
                     Node new_steiner_p(p,0);
+                    Point ori_left_p = branch_node.first, ori_right_p = neighbor.first;
                     branch_nodes[p].node = new_steiner_p;
                     branch_nodes[p].neighbors.resize(2);
-                    branch_nodes[p].neighbors[0].first = branch_node.first;
-                    branch_nodes[p].neighbors[1].first = neighbor.first;
+                    branch_nodes[p].neighbors[0].first = ori_left_p;
+                    branch_nodes[p].neighbors[1].first = ori_right_p;
                     branch_nodes[p].neighbors[0].second = neighbor.second;
+                    Node tmp_right_node = neighbor.second.n2;
+                    // find left neighbor to update
+                    for(int n=0; n<branch_nodes[ori_left_p].neighbors.size(); n++) {
+                        if(branch_nodes[ori_left_p].neighbors[n].first == ori_right_p) {
+                            branch_nodes[ori_left_p].neighbors[n].first = p;
+                            branch_nodes[ori_left_p].neighbors[n].second.n2.p = p;
+                            branch_nodes[p].neighbors[0].second = branch_nodes[ori_left_p].neighbors[n].second;
+                        }
+                    }
+                    // update right two_pin
                     TwoPinNet& new_two_pin = branch_nodes[p].neighbors[1].second;
                     new_two_pin.n1 = new_steiner_p;
-                    new_two_pin.n2 = neighbor.second.n2;
+                    new_two_pin.n2 = tmp_right_node;
                     new_two_pin.paths = new_paths;
-                    neighbor.second.n2 = new_steiner_p;*/
+                    neighbor.second.n2 = new_steiner_p;
+                    // find right neighbor to update
+                    for(int n=0; n<branch_nodes[ori_right_p].neighbors.size(); n++) {
+                        if(branch_nodes[ori_right_p].neighbors[n].first == ori_left_p) {
+                            branch_nodes[ori_right_p].neighbors[n].first = p;
+                            branch_nodes[ori_right_p].neighbors[n].second = new_two_pin;
+                        }
+                    }
                     return;
                 }
             }
