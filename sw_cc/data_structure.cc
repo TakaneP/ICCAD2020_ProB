@@ -611,7 +611,14 @@ void Net::insert_steiner_point(Point p, TwoPinNet& twopin) {
                     for(int n=0; n<branch_nodes[ori_right_p].neighbors.size(); n++) {
                         if(branch_nodes[ori_right_p].neighbors[n].first == ori_left_p) {
                             branch_nodes[ori_right_p].neighbors[n].first = p;
-                            branch_nodes[ori_right_p].neighbors[n].second = new_two_pin;
+                            // reverse two pin
+                            TwoPinNet r_twopin;
+                            r_twopin.n1 = new_two_pin.n2;
+                            r_twopin.n2 = new_two_pin.n1;
+                            r_twopin.paths.insert(r_twopin.paths.begin(), new_two_pin.paths.rbegin(), new_two_pin.paths.rend());
+                            for(auto& path : r_twopin.paths)
+                                swap(path.first, path.second);
+                            branch_nodes[ori_right_p].neighbors[n].second = r_twopin;
                         }
                     }
                     return;
