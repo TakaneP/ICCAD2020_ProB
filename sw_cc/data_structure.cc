@@ -612,13 +612,40 @@ void Net::insert_steiner_point(Point p, TwoPinNet& twopin) {
                     for(int n=0; n<branch_nodes[ori_right_p].neighbors.size(); n++) {
                         if(branch_nodes[ori_right_p].neighbors[n].first == ori_left_p) {
                             branch_nodes[ori_right_p].neighbors[n].first = p;
-                            branch_nodes[ori_right_p].neighbors[n].second = new_two_pin;
+                            // reverse two pin
+                            TwoPinNet r_twopin;
+                            r_twopin.n1 = new_two_pin.n2;
+                            r_twopin.n2 = new_two_pin.n1;
+                            r_twopin.paths.insert(r_twopin.paths.begin(), new_two_pin.paths.rbegin(), new_two_pin.paths.rend());
+                            for(auto& path : r_twopin.paths)
+                                swap(path.first, path.second);
+                            branch_nodes[ori_right_p].neighbors[n].second = r_twopin;
                         }
                     }
                     return;
                 }
             }
         }
+    }
+}
+
+void Net::set_point_component(unordered_map<Point, int, MyHashFunction>& component_map) {
+    int component_count = 0;
+    for(auto& branch_node : branch_nodes) {
+        if(component_map.find(branch_node.first) != component_map.end()) continue;
+        component_map[branch_node.first] = ++component_count;
+        queue<Point> nodes;
+        nodes.push(branch_node.first);
+        while(!nodes.empty()) {
+            Point current_p = nodes.front();
+            nodes.pop();
+            for(auto& neighbor : branch_nodes[current_p].neighbors) {
+                if(component_map.find(neighbor.first) == component_map.end()) {
+                    component_map[neighbor.first] = component_count;
+                    nodes.push(neighbor.first);
+                }        
+            }    
+        }       
     }
 }
 
@@ -1098,7 +1125,6 @@ void RoutingGraph::move_cells_force() {
                 // add two_pin demand into graph            
                 net.add_twopin_demand_into_graph(get<4>(open_net), grids);
             }
-            //cout << "head: " << nets[0].branch_nodes.begin()->first << " " << nets[0].branch_nodes.begin()->second.neighbors.size() << endl;
         }
     }
 }
