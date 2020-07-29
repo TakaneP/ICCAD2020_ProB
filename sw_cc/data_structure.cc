@@ -628,6 +628,26 @@ void Net::insert_steiner_point(Point p, TwoPinNet& twopin) {
     }
 }
 
+void Net::set_point_component(unordered_map<Point, int, MyHashFunction>& component_map) {
+    int component_count = 0;
+    for(auto& branch_node : branch_nodes) {
+        if(component_map.find(branch_node.first) != component_map.end()) continue;
+        component_map[branch_node.first] = ++component_count;
+        queue<Point> nodes;
+        nodes.push(branch_node.first);
+        while(!nodes.empty()) {
+            Point current_p = nodes.front();
+            nodes.pop();
+            for(auto& neighbor : branch_nodes[current_p].neighbors) {
+                if(component_map.find(neighbor.first) == component_map.end()) {
+                    component_map[neighbor.first] = component_count;
+                    nodes.push(neighbor.first);
+                }        
+            }    
+        }       
+    }
+}
+
 RoutingGraph::RoutingGraph(): usedCellMove(0) {segmentTree = new SegmentTree(*this);}
 RoutingGraph::~RoutingGraph() {delete segmentTree;}
 
@@ -1041,9 +1061,7 @@ void RoutingGraph::move_cells_force() {
         }
         // delete cell neighbor two-pin
         del_cell_neighbor(cell_idx);
-        //print_neighbors(nets[1218]);
         add_cell(to_p.x,to_p.y,cell_idx);
-        //print_neighbors(nets[1218]);
         // test reroute
         bool routing_success = 1;
         for(auto& open_net : open_nets) {
@@ -1079,12 +1097,9 @@ void RoutingGraph::move_cells_force() {
             movedCell.insert(cell_idx);
         else {
             del_cell_last_k_neighbor(cell_idx, netK);
-            //print_neighbors(nets[1218]);
             if(cell_ori_x == cell.originalX && cell_ori_y == cell.originalY)
                 movedCell.erase(cell_idx);
             add_cell(cell_ori_x,cell_ori_y,cell_idx);
-            //print_neighbors(nets[1218]);
-            cout << "open_nets size: " << open_nets.size() << endl;
             for(auto& open_net : open_nets) {
                 auto& net = nets[get<2>(open_net)];
                 Point p1(cell_ori_x, cell_ori_y, get<0>(open_net).z);
@@ -1103,7 +1118,6 @@ void RoutingGraph::move_cells_force() {
                 // add two_pin demand into graph            
                 net.add_twopin_demand_into_graph(get<4>(open_net), grids);
             }
-            //cout << "head: " << nets[0].branch_nodes.begin()->first << " " << nets[0].branch_nodes.begin()->second.neighbors.size() << endl;
         }
     }
 }
