@@ -12,12 +12,18 @@ class SegmentTree;
 struct Cell;
 struct TreeNode;
 struct Node;
+struct TwoPinNet;
+
+TwoPinNet two_pin_reverse(TwoPinNet two_pin);
 
 struct Pin{
-    Pin(): layer(-1), connectedNet(-1) {}
-    Pin(int l): layer(l), connectedNet(-1) {}
+    Pin(): layer(-1), connectedNet(-1), pseudo(0) {}
+    Pin(int l): layer(l), connectedNet(-1), pseudo(0) {}
+    Pin(int l, bool p, int a): layer(l), pseudo(p), actualPinLayer(a) {}
     int layer;
     int connectedNet;
+    bool pseudo;
+    int actualPinLayer; //Only if pin is pseudom used to output
 };
 
 struct MasterCell{
@@ -43,6 +49,9 @@ struct Point{
     Point operator+(const Point& p2) const{
         return Point(this->x+p2.x, this->y+p2.y, this->z+p2.z);
     }
+    Point operator-(const Point& p2) const{
+        return Point(this->x-p2.x, this->y-p2.y, this->z-p2.z);
+    }
     bool operator<=(const Point& p2) const{
         return (this->x<=p2.x) && (this->y<=p2.y) && (this->z<=p2.z);
     }
@@ -62,6 +71,11 @@ struct Node{
     bool operator==(const Node& p2){
         return this->p == p2.p;
     }
+    Node() {
+        p = Point(0,0,0);
+        type = 0;
+    }
+    Node(Point point, int type): p(point), type(type) {}
 };
 
 struct TwoPinNet{
@@ -127,19 +141,19 @@ struct Net{
     // construct MST to remove cycle in branch_nodes
     void remove_branch_cycle(std::vector<std::vector<std::vector<Gcell>>>& grids);
     void push_edge_in_queue(std::priority_queue<TwoPinNet, std::vector<TwoPinNet>, std::greater<TwoPinNet>>& frontier_edges);
-    // merge degree 2 steiner node
-    void merge_steiner_path(Point p, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void del_net_from_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void del_seg_demand(std::pair<Point,Point> segment, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void del_seg_demand_from_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void del_twoPinNet_from_graph(TwoPinNet& twoPinNet, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void add_net_demand_into_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void add_twopin_demand_into_graph(TwoPinNet& twoPinNet, std::vector<std::vector<std::vector<Gcell>>>& grids);
+    void insert_steiner_point(Point p, TwoPinNet& twopin);
+    void set_point_component(std::unordered_map<Point, int, MyHashFunction>& component_map);
 };
 
 struct Cell : public MasterCell{
     Cell() {}
-    Cell(std::vector<Pin>& p, std::unordered_map<int, int> b, bool m, int _x, int _y, int mc): MasterCell(p,b), movable(m), x(_x), y(_y), mcType(mc) {
+    Cell(std::vector<Pin>& p, std::unordered_map<int, int>& b, bool m, int _x, int _y, int mc): MasterCell(p,b), movable(m), x(_x), y(_y), mcType(mc) {
         originalX = x;
         originalY = y;
     }
@@ -168,15 +182,24 @@ public:
     void add_cell_demand_into_graph(int x, int y, int MCtype);
     void del_cell_demand_from_graph(int x, int y, int MCtype);
     void del_cell_neighbor(int cellIndex);
+    void del_cell_last_k_neighbor(int cellIndex, std::unordered_map<int, int>& netK); //key: netId, value: delete last k neighbors for that net
     void construct_2pin_nets();
     void move_cells_force();
     void reroute_all_net();
     bool find_optimal_pos(Cell cell, std::vector<std::pair<Point,int>>& cells_pos);
     // return cell profit after put in cell
-    int check_cell_cost_in_graph(int x, int y, int MCtype);
+    int check_cell_cost_in_graph(int x, int y, Cell& cell);
     int Z_shape_routing(Point source, Point sink, int NetId);
     bool A_star_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
+    // return, 0: not find, 1 reach sink, 2 reach tree branch
+    int A_star_pin2component_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p,
+        std::unordered_map<Point, int, MyHashFunction>& component_map, Point& reach_p);
     int check_segment_profit(Point from, Point to, int NetId);
+    TwoPinNet convert_path_to_twopin(Point source, Point sink, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
+    void set_comp_grid_map(std::vector<std::vector<std::vector<int>>>& comp_grid_map, int netId, Point sink,
+        std::unordered_map<Point, int, MyHashFunction>& component_map, Point box_min, Point box_max);
+    void add_path_comp_in_comp_grid(std::vector<std::vector<std::vector<int>>>& comp_grid_map, 
+        std::pair<Point, Point> path, Point box_min, int sink_comp);
     Tree RSMT(std::vector<int> x, std::vector<int> y);
     int row, column, layer;
     int maxCellMove;

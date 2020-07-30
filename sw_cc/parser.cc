@@ -134,10 +134,22 @@ void Parser::run(void) {
             string pinName = type.substr(found+1);
             int cellIndex = get_postfix_int(cellIns, 1);
             int pinIndex = get_postfix_int(pinName, 1);
-            graph.nets[i].pins.push_back({cellIndex, pinIndex});
             Cell& cell = graph.cellInstances[cellIndex];
-            cell.pins[pinIndex].connectedNet = i;
-            graph.nets[i].add_net_demand_into_graph(cell.x, cell.y, cell.pins[pinIndex].layer, graph.grids);
+            if(graph.nets[i].minRoutingLayer > cell.pins[pinIndex].layer) {
+                Pin pin = Pin(graph.nets[i].minRoutingLayer, 1, cell.pins[pinIndex].layer);
+                pin.connectedNet = i;
+                cell.pins[pinIndex].connectedNet = -1;
+                cell.pins.push_back(pin);
+                graph.nets[i].pins.push_back({cellIndex, cell.pins.size()-1});
+                graph.nets[i].add_net_demand_into_graph(cell.x, cell.y, pin.layer, graph.grids);
+                for(int k = cell.pins[pinIndex].layer; k <= graph.nets[i].minRoutingLayer; ++k)
+                    graph.nets[i].add_net_demand_into_graph(cell.x, cell.y, k, graph.grids);
+            }
+            else {
+                graph.nets[i].pins.push_back({cellIndex, pinIndex});
+                cell.pins[pinIndex].connectedNet = i;
+                graph.nets[i].add_net_demand_into_graph(cell.x, cell.y, cell.pins[pinIndex].layer, graph.grids);
+            }
         }
     }
     //Routing segments
