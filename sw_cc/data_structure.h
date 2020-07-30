@@ -188,7 +188,7 @@ public:
     void reroute_all_net();
     bool find_optimal_pos(Cell cell, std::vector<std::pair<Point,int>>& cells_pos);
     // return cell profit after put in cell
-    int check_cell_cost_in_graph(int x, int y, int MCtype);
+    int check_cell_cost_in_graph(int x, int y, Cell& cell);
     int Z_shape_routing(Point source, Point sink, int NetId);
     bool A_star_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
     // return, 0: not find, 1 reach sink, 2 reach tree branch
