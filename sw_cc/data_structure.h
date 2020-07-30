@@ -188,8 +188,14 @@ public:
     int check_cell_cost_in_graph(int x, int y, int MCtype);
     int Z_shape_routing(Point source, Point sink, int NetId);
     bool A_star_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
+    bool A_star_pin2component_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p,
+        std::unordered_map<Point, int, MyHashFunction>& component_map);
     int check_segment_profit(Point from, Point to, int NetId);
     TwoPinNet convert_path_to_twopin(Point source, Point sink, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
+    void set_comp_grid_map(std::vector<std::vector<std::vector<int>>>& comp_grid_map, int netId, Point sink,
+        std::unordered_map<Point, int, MyHashFunction>& component_map, Point box_min, Point box_max);
+    void add_path_comp_in_comp_grid(std::vector<std::vector<std::vector<int>>>& comp_grid_map, 
+        std::pair<Point, Point> path, Point box_min, int sink_comp);
     Tree RSMT(std::vector<int> x, std::vector<int> y);
     int row, column, layer;
     int maxCellMove;

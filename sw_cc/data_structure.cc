@@ -1067,7 +1067,6 @@ void RoutingGraph::move_cells_force() {
         for(auto& open_net : open_nets) {
             auto& net = nets[get<2>(open_net)];
             cout << endl << "new from " << get<0>(open_net) << " to " << get<1>(open_net) << " " << get<2>(open_net) << endl;
-            //Z_shape_routing(get<0>(open_net), get<1>(open_net), get<2>(open_net));
             unordered_map<Point,Point,MyHashFunction> visited_p;
             Point source = get<0>(open_net), sink = get<1>(open_net);
             bool seccess = A_star_routing(source, sink, get<2>(open_net), visited_p);
@@ -1393,6 +1392,190 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
         }
     }
     return find_flag;
+}
+
+bool RoutingGraph::A_star_pin2component_routing(Point source, Point sink, int NetId, unordered_map<Point,Point,MyHashFunction>& visited_p,
+    unordered_map<Point, int, MyHashFunction>& component_map) {
+    int min_x = min(source.x, sink.x);
+    int max_x = max(source.x, sink.x);
+    int min_y = min(source.y, sink.y);
+    int max_y = max(source.y, sink.y);
+    int min_l = min(source.z, sink.z);
+    int max_l = max(source.z, sink.z);
+    visited_p[source] = source;
+    if(source == sink) return 0;
+    max_l = (max_l<this->layer-1) ? max_l+1 : max_l;
+    int min_r_l = nets[NetId].minRoutingLayer;
+    if(min_r_l>0) return 0;
+    Point ori_source = source, ori_sink = sink;
+    if(min_l < min_r_l) {
+        min_l = min_r_l;
+        if(source.z < min_r_l) {
+            source.z = min_r_l;
+            visited_p[source] = ori_source;
+        }
+        if(sink.z < min_r_l) {
+            sink.z = min_r_l;
+            visited_p[ori_sink] = sink;
+        }
+    }
+    if(max_l < min_l) return 0;
+    priority_queue<pair<Point,int>> p_q;
+    // initial comp_grid_map
+    vector<vector<vector<int>>> comp_grid_map;
+    set_comp_grid_map(comp_grid_map, NetId, sink, component_map, Point(min_x,min_y,min_l), Point(max_x,max_y,max_l));
+    cout << "TEST " << Point(min_x,min_y,min_l) << " " << Point(max_x,max_y,max_l) << " \n";
+    for(int x=0; x<comp_grid_map.size(); x++) {
+        auto& gx = comp_grid_map[x];
+        for(int y=0; y<gx.size(); y++) {
+            auto& gy = gx[y];
+            for(int z=0; z<gy.size(); z++) {
+                auto& gz = gy[z];
+                if(gz != 0)
+                    cout << "(" << x << "," << y << "," << z << ")\n";
+            }
+        }
+    }
+
+    Gcell& gcell = grids[source.x][source.y][source.z];
+    int source_comp = component_map[source], sink_comp = component_map[sink];
+    int wire_length = 1;
+    if(gcell.passingNets.find(NetId) != gcell.passingNets.end())
+        wire_length = 0;
+    int remain = gcell.capacity-gcell.demand-wire_length;
+    if(remain < 0)
+        return 0;
+    p_q.emplace(source, gcell.demand+wire_length+distance(source,sink));
+    bool find_flag = 0;
+    while(!p_q.empty()) {
+        auto frontier = p_q.top();
+        p_q.pop();
+        auto& f_point = frontier.first;
+        if(f_point == sink) {
+            find_flag = 1;
+            break;
+        }
+        // up
+        if(f_point.z%2==1 && f_point.x < max_x) {
+            Point new_p(f_point.x+1,f_point.y,f_point.z);
+            Gcell& new_gcell = grids[f_point.x+1][f_point.y][f_point.z];
+            int wire_length = 1;
+            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
+                wire_length = 0;
+            int remain = new_gcell.capacity-new_gcell.demand-wire_length;
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {              
+                p_q.emplace(new_p, new_gcell.demand+wire_length+distance(new_p,sink));
+                visited_p[new_p] = f_point;
+            }
+        }
+        // down
+        if(f_point.z%2==1 && f_point.x > min_x) {
+            Point new_p(f_point.x-1,f_point.y,f_point.z);
+            Gcell& new_gcell = grids[f_point.x-1][f_point.y][f_point.z];
+            int wire_length = 1;
+            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
+                wire_length = 0;
+            int remain = new_gcell.capacity-new_gcell.demand-wire_length;
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
+                p_q.emplace(new_p, new_gcell.demand+wire_length+distance(new_p,sink));
+                visited_p[new_p] = f_point;
+            }
+        }
+        // right
+        if(f_point.z%2==0 && f_point.y < max_y) {
+            Point new_p(f_point.x,f_point.y+1,f_point.z);
+            Gcell& new_gcell = grids[f_point.x][f_point.y+1][f_point.z];
+            int wire_length = 1;
+            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
+                wire_length = 0;
+            int remain = new_gcell.capacity-new_gcell.demand-wire_length;
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
+                p_q.emplace(new_p, new_gcell.demand+wire_length+distance(new_p,sink));
+                visited_p[new_p] = f_point;
+            }
+        }
+        // left
+        if(f_point.z%2==0 && f_point.y > min_y) {
+            Point new_p(f_point.x,f_point.y-1,f_point.z);
+            Gcell& new_gcell = grids[f_point.x][f_point.y-1][f_point.z];
+            int wire_length = 1;
+            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
+                wire_length = 0;
+            int remain = new_gcell.capacity-new_gcell.demand-wire_length;
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
+                p_q.emplace(new_p, new_gcell.demand+wire_length+distance(new_p,sink));
+                visited_p[new_p] = f_point;
+            }
+        }
+        // top
+        if(f_point.z < max_l) {
+            Point new_p(f_point.x,f_point.y,f_point.z+1);
+            Gcell& new_gcell = grids[f_point.x][f_point.y][f_point.z+1];
+            int wire_length = 1;
+            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
+                wire_length = 0;
+            int remain = new_gcell.capacity-new_gcell.demand-wire_length;
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
+                p_q.emplace(new_p, new_gcell.demand+wire_length+distance(new_p,sink));
+                visited_p[new_p] = f_point;
+            }
+        }
+        // down
+        if(f_point.z > min_l) {
+            Point new_p(f_point.x,f_point.y,f_point.z-1);
+            Gcell& new_gcell = grids[f_point.x][f_point.y][f_point.z-1];
+            int wire_length = 1;
+            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
+                wire_length = 0;
+            int remain = new_gcell.capacity-new_gcell.demand-wire_length;
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
+                p_q.emplace(new_p, new_gcell.demand+wire_length+distance(new_p,sink));
+                visited_p[new_p] = f_point;
+            }
+        }
+    }
+    return find_flag;
+}
+
+void RoutingGraph::set_comp_grid_map(std::vector<std::vector<std::vector<int>>>& comp_grid_map, int netId, Point sink,
+    unordered_map<Point, int, MyHashFunction>& component_map, Point box_min, Point box_max) {
+    
+    comp_grid_map.resize(box_max.x-box_min.x+1);
+    for(auto& comp_x : comp_grid_map) {
+        comp_x.resize(box_max.y-box_min.y+1);
+        for(auto& comp_y : comp_x)
+            comp_y.resize(box_max.z-box_min.z+1, 0);
+    }
+    Net& net = nets[netId];
+    int sink_comp = component_map[sink];
+    cout << "sink_comp: " << sink_comp << endl;
+    unordered_set<Point, MyHashFunction> sink_set;
+    for(auto& comp : component_map) {
+        if(comp.second == sink_comp) {
+            for(auto& neighbor : net.branch_nodes[comp.first].neighbors) {
+                if(sink_set.find(neighbor.first) != sink_set.end())
+                    continue;
+                // push path comp tag in grid
+                for(auto& path : neighbor.second.paths)
+                    add_path_comp_in_comp_grid(comp_grid_map, path, box_min, sink_comp);             
+                sink_set.insert(comp.first);
+            }
+        }
+    }
+}
+
+void RoutingGraph::add_path_comp_in_comp_grid(std::vector<std::vector<std::vector<int>>>& comp_grid_map, 
+    pair<Point, Point> path, Point box_min, int sink_comp) {
+    if( !(path.first<=path.second) )
+        swap(path.first, path.second);
+    Point dir = norm(path.second-path.first);
+    for(Point p = path.first; p <= path.second; p = p+dir) {
+        Point local_p = p - box_min;
+        if(local_p.x<0 || local_p.y<0 || local_p.z) continue;
+        if(local_p.x >= comp_grid_map.size() || local_p.y >= comp_grid_map[0].size() || local_p.z >= comp_grid_map[0][0].size())
+            continue;
+        comp_grid_map[local_p.x][local_p.y][local_p.z] = sink_comp;
+    }
 }
 
 void RoutingGraph::reroute_all_net() {
