@@ -395,8 +395,6 @@ void Net::remove_branch_cycle(vector<vector<vector<Gcell>>>& grids) {
     while(!frontier_edges.empty()) {
         auto edge = frontier_edges.top();
         frontier_edges.pop();
-        //cout << "Two_pin: " << edge.n1.p << " " << edge.n1.type << " to " << 
-        //edge.n2.p << " " << edge.n2.type << "\n";
         if(visited_nodes.size() == 0) {
             visited_nodes.insert(edge.n1.p);
             visited_nodes.insert(edge.n2.p);
@@ -987,7 +985,6 @@ void Net::del_seg_demand(std::pair<Point,Point> segment, vector<vector<vector<Gc
 void Net::del_seg_demand_from_graph(int x, int y, int z, vector<vector<vector<Gcell>>>& grids) {
     if(--grids[x][y][z].passingNets[netId] == 0)
         grids[x][y][z].demand--;
-    if(grids[x][y][z].passingNets[netId] < 0) cout << "FUCK!!!\n";
 }
 
 void Net::del_twoPinNet_from_graph(TwoPinNet& twoPinNet, vector<vector<vector<Gcell>>>& grids) {
@@ -1046,9 +1043,7 @@ void RoutingGraph::move_cells_force() {
         if(this->movedCell.size() >= maxCellMove) return;
         Cell cell = cellInstances[cell_idx];
         if(!cell.movable) continue;
-        //if(cell_idx > 5565) return;
         int cell_ori_x = cell.x, cell_ori_y = cell.y;
-        cout << "\ncell " << cell_idx << " (" << cell.x << "," << cell.y << ")\n";
         vector<pair<Point,int>> cells_pos;
         bool opt_flag = find_optimal_pos(cell, cells_pos);
         if(cells_pos.size() == 0)
@@ -1064,7 +1059,6 @@ void RoutingGraph::move_cells_force() {
                 continue;
             auto& net = nets[pin.connectedNet];
             Point cell_p(cell.x, cell.y, pin.layer);
-            cout << "net id = " << net.netId << endl;
             for(auto& neighbor : net.branch_nodes[cell_p].neighbors) {
                 Point neighbor_p = neighbor.first;
                 neighbor.second.update_wire_length();
@@ -1090,13 +1084,11 @@ void RoutingGraph::move_cells_force() {
 
             bool seccess = A_star_routing(source, sink, get<2>(open_net), visited_p);
             if(!seccess) {
-                cout << "A star fail\n";
                 // reverse
                 routing_success = 0;
                 break;
             }
             // success one net
-            cout << "A star seccess , Net " << get<2>(open_net) << "\n";          
             TwoPinNet two_pin = convert_path_to_twopin(source, sink, visited_p);
             two_pin.update_wire_length();
             net_wirelength -= two_pin.wire_length;
@@ -1105,11 +1097,6 @@ void RoutingGraph::move_cells_force() {
                 routing_success = 0;
                 break;
             }
-            /*cout << "Twopin:\n";
-            for(auto& path : two_pin.paths) {
-                cout << path.first << " -> " << path.second << endl;
-            }
-            cout << "Source: " << source.x << " " << source.y << " " << source.z << "\n";*/
             // rebuild branch_nodes
             net.branch_nodes[source].neighbors.emplace_back(sink,two_pin);
             net.branch_nodes[sink].neighbors.emplace_back(source,two_pin);
@@ -1117,8 +1104,9 @@ void RoutingGraph::move_cells_force() {
             net.add_twopin_demand_into_graph(two_pin, grids);
             netK[net.netId]++;
         }
-        if(routing_success)
+        if(routing_success) {
             movedCell.insert(cell_idx);
+        }
         else {
             del_cell_last_k_neighbor(cell_idx, netK);
             if(cell_ori_x == cell.originalX && cell_ori_y == cell.originalY)
@@ -1154,7 +1142,6 @@ TwoPinNet RoutingGraph::convert_path_to_twopin(Point source, Point sink, unorder
     two_pin.paths.push_back({sink,visited_p[sink]});
     // build TwopinNet
     while(true) {
-        cout << tmp_node << endl;
         if(tmp_node == source)
             break;
         tmp_node = visited_p[tmp_node];  
@@ -1221,7 +1208,6 @@ bool RoutingGraph::find_optimal_pos(Cell cell, vector<pair<Point,int>>& cells_po
     // cell already in optimal region
     if(cell.x >= opt_x_left && cell.x <= opt_x_right && cell.y >= opt_y_left && cell.y <= opt_y_right)
         return 0;
-    cout << "opt region: " << opt_x_left << " " << opt_y_left << " " << opt_x_right << " " << opt_y_right << endl;
     for(int x=opt_x_left; x<=opt_x_right; x++) {
         for(int y=opt_y_left; y<=opt_y_right; y++) {
             int profit = check_cell_cost_in_graph(x, y, cell);
@@ -1335,7 +1321,6 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
     auto pos = gcell.passingNets.find(NetId);
     if(pos != gcell.passingNets.end() && pos->second != 0)
         wire_length = 0;
-    cout << wire_length << "\n";
     int remain = gcell.capacity-gcell.demand-wire_length;
     if(remain < 0)
         return 0;
