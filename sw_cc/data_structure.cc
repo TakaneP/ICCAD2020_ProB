@@ -1051,6 +1051,7 @@ void RoutingGraph::move_cells_force() {
             continue;
         // source, sink, netId, source.node, twopin
         vector<tuple<Point,Point,int,Node,TwoPinNet>> open_nets;
+        int net_wirelength = 0;
         for(auto& pin : cell.pins) {
             if(pin.connectedNet == -1)
                 continue;
@@ -1059,9 +1060,12 @@ void RoutingGraph::move_cells_force() {
             cout << "net id = " << net.netId << endl;
             for(auto& neighbor : net.branch_nodes[cell_p].neighbors) {
                 Point neighbor_p = neighbor.first;
+                neighbor.second.update_wire_length();
+                net_wirelength += neighbor.second.wire_length;
                 open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), neighbor_p, net.netId, net.branch_nodes[cell_p].node, neighbor.second);
             }        
             if(net.branch_nodes[cell_p].node.type == 2 && net.branch_nodes[cell_p].neighbors.empty()) {
+                net_wirelength++;
                 open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), Point(cell_ori_x,cell_ori_y,pin.layer), net.netId, Node(), TwoPinNet());
             }
         }
@@ -1072,25 +1076,30 @@ void RoutingGraph::move_cells_force() {
         bool routing_success = 1;
         for(auto& open_net : open_nets) {
             auto& net = nets[get<2>(open_net)];
-            cout << endl << "new from " << get<0>(open_net) << " to " << get<1>(open_net) << " " << get<2>(open_net) << endl;
             unordered_map<Point,Point,MyHashFunction> visited_p;
             Point source = get<0>(open_net), sink = get<1>(open_net);
             bool seccess = A_star_routing(source, sink, get<2>(open_net), visited_p);
-            if(seccess)
-                cout << "A star seccess , Net " << get<2>(open_net) << "\n";
-            else {
+            if(!seccess) {
                 cout << "A star fail\n";
                 // reverse
                 routing_success = 0;
                 break;
             }
             // success one net
+            cout << "A star seccess , Net " << get<2>(open_net) << "\n";          
             TwoPinNet two_pin = convert_path_to_twopin(source, sink, visited_p);
-            cout << "Twopin:\n";
+            two_pin.update_wire_length();
+            net_wirelength -= two_pin.wire_length;
+            if(net_wirelength <= 0) {
+                // worse routing
+                routing_success = 0;
+                break;
+            }
+            /*cout << "Twopin:\n";
             for(auto& path : two_pin.paths) {
                 cout << path.first << " -> " << path.second << endl;
             }
-            cout << "Source: " << source.x << " " << source.y << " " << source.z << "\n";
+            cout << "Source: " << source.x << " " << source.y << " " << source.z << "\n";*/
             // rebuild branch_nodes
             net.branch_nodes[source].neighbors.emplace_back(sink,two_pin);
             net.branch_nodes[sink].neighbors.emplace_back(source,two_pin);
@@ -1105,13 +1114,11 @@ void RoutingGraph::move_cells_force() {
             if(cell_ori_x == cell.originalX && cell_ori_y == cell.originalY)
                 movedCell.erase(cell_idx);
             add_cell(cell_ori_x,cell_ori_y,cell_idx);
-            cout << "open_nets size: " << open_nets.size() << endl;
             for(auto& open_net : open_nets) {
                 auto& net = nets[get<2>(open_net)];
                 Point p1(cell_ori_x, cell_ori_y, get<0>(open_net).z);
                 if(p1 == get<1>(open_net)) 
                     continue;
-                cout << "re: " << p1 << " " << get<1>(open_net) << " net: " << get<2>(open_net) << endl;
                 int n;
                 for(n=0; n<net.branch_nodes[p1].neighbors.size(); n++) {
                     if(net.branch_nodes[p1].neighbors[n].first == get<1>(open_net))
