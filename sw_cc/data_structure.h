@@ -12,6 +12,9 @@ class SegmentTree;
 struct Cell;
 struct TreeNode;
 struct Node;
+struct TwoPinNet;
+
+TwoPinNet two_pin_reverse(TwoPinNet two_pin);
 
 struct Pin{
     Pin(): layer(-1), connectedNet(-1), pseudo(0) {}
@@ -188,8 +191,9 @@ public:
     int check_cell_cost_in_graph(int x, int y, int MCtype);
     int Z_shape_routing(Point source, Point sink, int NetId);
     bool A_star_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
-    bool A_star_pin2component_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p,
-        std::unordered_map<Point, int, MyHashFunction>& component_map);
+    // return, 0: not find, 1 reach sink, 2 reach tree branch
+    int A_star_pin2component_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p,
+        std::unordered_map<Point, int, MyHashFunction>& component_map, Point& reach_p);
     int check_segment_profit(Point from, Point to, int NetId);
     TwoPinNet convert_path_to_twopin(Point source, Point sink, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
     void set_comp_grid_map(std::vector<std::vector<std::vector<int>>>& comp_grid_map, int netId, Point sink,
