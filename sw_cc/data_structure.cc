@@ -188,6 +188,7 @@ void Net::traverse_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap,
                 if(!(segment.n1.p == segment.n2.p))
                     routingTree.push_back(segment);
                 else {
+                    del_twoPinNet_from_graph(segment, grids);
                     if(!localNets[{segment.n1.p.x, segment.n1.p.y, segment.n1.p.z}].empty()) {
                         branch_nodes[segment.n1.p].node.mergedLocalPins = localNets[{segment.n1.p.x, segment.n1.p.y, segment.n1.p.z}];
                         if(branch_nodes[segment.n1.p].node.mergedLocalPins.size() > 1) branch_nodes[segment.n1.p].node.type = 2;
@@ -518,7 +519,7 @@ void Net::clear_steiner_point(Point p, vector<vector<vector<Gcell>>>& grids) {
         }
         else {
             del_twoPinNet_from_graph(neighbor1TreeNode.neighbors[pos2].second, grids);
-            grids[p.x][p.y][p.z].passingNets[netId]--;
+            //grids[p.x][p.y][p.z].passingNets[netId]--;
             neighbor1TreeNode.neighbors[pos2].second.paths = neighbor1TreeNode.neighbors[pos1].second.paths;
             neighbor2TreeNode.neighbors[pos4].second.paths = neighbor2TreeNode.neighbors[pos3].second.paths;
             neighbor1TreeNode.neighbors[pos2].second.paths.insert(neighbor1TreeNode.neighbors[pos2].second.paths.end(), twoPinNet2.paths.begin(), twoPinNet2.paths.end());
@@ -526,7 +527,7 @@ void Net::clear_steiner_point(Point p, vector<vector<vector<Gcell>>>& grids) {
         }
     }
     else{
-        grids[p.x][p.y][p.z].passingNets[netId]--;
+        //grids[p.x][p.y][p.z].passingNets[netId]--;
         neighbor1TreeNode.neighbors.push_back({neighbor2, TwoPinNet()});
         neighbor2TreeNode.neighbors.push_back({neighbor1, TwoPinNet()});
         int index1 = neighbor1TreeNode.neighbors.size() - 1;
@@ -849,10 +850,21 @@ void RoutingGraph::del_cell_last_k_neighbor(int cellIndex, unordered_map<int, in
             }
             if(net.branch_nodes.empty() || net.branch_nodes.find(p) == net.branch_nodes.end()) continue;
             TreeNode& treeNode = net.branch_nodes[p];
-            if(treeNode.neighbors.empty()) {
+            for(auto it = treeNode.node.mergedLocalPins.begin(); it != treeNode.node.mergedLocalPins.end();) {
+                if(it->first == cellIndex)
+                    it = treeNode.node.mergedLocalPins.erase(it);
+                else ++it;
+            }
+
+            if(treeNode.node.mergedLocalPins.size() == 1)
+                treeNode.node.type = 1;
+            else if(treeNode.node.mergedLocalPins.size() == 0) treeNode.node.type = 0;
+
+            if(treeNode.neighbors.empty() && treeNode.node.type == 0) {
                 net.branch_nodes.erase(p);
                 continue;
             }
+
             unordered_map<int, int>::iterator pos = netK.find(netIndex);
             if(pos == netK.end()) continue;
             int numberToDelete = pos->second;
@@ -870,13 +882,6 @@ void RoutingGraph::del_cell_last_k_neighbor(int cellIndex, unordered_map<int, in
                 treeNode.neighbors.pop_back();
             }
             netK.erase(pos);
-            for(auto it = treeNode.node.mergedLocalPins.begin(); it != treeNode.node.mergedLocalPins.end();) {
-                if(it->first == cellIndex)
-                    it = treeNode.node.mergedLocalPins.erase(it);
-                else ++it;
-            }
-            if(treeNode.node.mergedLocalPins.size() == 1)
-                treeNode.node.type = 1;
 
             if(treeNode.node.mergedLocalPins.size() >= 1)
                 continue;
@@ -975,6 +980,7 @@ void Net::del_seg_demand(std::pair<Point,Point> segment, vector<vector<vector<Gc
 void Net::del_seg_demand_from_graph(int x, int y, int z, vector<vector<vector<Gcell>>>& grids) {
     if(--grids[x][y][z].passingNets[netId] == 0)
         grids[x][y][z].demand--;
+    if(grids[x][y][z].passingNets[netId] < 0) cout << "FUCK!!!\n";
 }
 
 void Net::del_twoPinNet_from_graph(TwoPinNet& twoPinNet, vector<vector<vector<Gcell>>>& grids) {
@@ -1033,7 +1039,7 @@ void RoutingGraph::move_cells_force() {
         if(this->movedCell.size() >= maxCellMove) return;
         Cell cell = cellInstances[cell_idx];
         if(!cell.movable) continue;
-        //if(cell_idx > 1217) return;
+        //if(cell_idx > 5565) return;
         int cell_ori_x = cell.x, cell_ori_y = cell.y;
         cout << "\ncell " << cell_idx << " (" << cell.x << "," << cell.y << ")\n";
         vector<pair<Point,int>> cells_pos;
@@ -1099,6 +1105,7 @@ void RoutingGraph::move_cells_force() {
             if(cell_ori_x == cell.originalX && cell_ori_y == cell.originalY)
                 movedCell.erase(cell_idx);
             add_cell(cell_ori_x,cell_ori_y,cell_idx);
+            cout << "open_nets size: " << open_nets.size() << endl;
             for(auto& open_net : open_nets) {
                 auto& net = nets[get<2>(open_net)];
                 Point p1(cell_ori_x, cell_ori_y, get<0>(open_net).z);
@@ -1210,11 +1217,13 @@ bool RoutingGraph::find_optimal_pos(Cell cell, vector<pair<Point,int>>& cells_po
 }
 
 int RoutingGraph::check_cell_cost_in_graph(int x, int y, int MCtype) {
-    vector<int> layer_remain(layer);
+    vector<int> layer_remain(layer), pre_layer_remain(layer, 0), nxt_layer_remain(layer, 0);
     MasterCell& masterCell = masterCells[MCtype];
     // initial remain
     for(int n=0; n<layer_remain.size(); n++) {
         layer_remain[n] = grids[x][y][n].capacity - grids[x][y][n].demand;
+        if(y > 0) pre_layer_remain[n] = grids[x][y-1][n].capacity - grids[x][y-1][n].demand;
+        if(y < (column-1)) nxt_layer_remain[n] = grids[x][y+1][n].capacity - grids[x][y+1][n].demand;
     }
     // add blockage demand
     for(auto it = masterCell.blockages.begin(); it != masterCell.blockages.end(); ++it) {
@@ -1236,34 +1245,24 @@ int RoutingGraph::check_cell_cost_in_graph(int x, int y, int MCtype) {
         if(y > 0) {
             preOriginalPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype]);
             preAfterPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype] + 1);
-            for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
-                int new_demand = grids[x][y-1][_it->first].demand + _it->second * (preAfterPairCnt - preOriginalPairCnt);
-                if(grids[x][y-1][_it->first].capacity < new_demand) {
-                    return -1;
-                }
-            }
         }
         // check right cell demand
         if(y < (column - 1)) {
             nxtOriginalPairCnt = min(cellCount[x][y+1][MCtype2], cellCount[x][y][MCtype]);
             nxtAfterPairCnt = min(cellCount[x][y+1][MCtype2], cellCount[x][y][MCtype] + 1);
-            for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
-                int new_demand = grids[x][y+1][_it->first].demand + _it->second * (nxtAfterPairCnt - nxtOriginalPairCnt);
-                if(grids[x][y+1][_it->first].capacity < new_demand) {
-                    return -1;
-                }
-            }
         }
         // Update current
         for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
+            pre_layer_remain[_it->first] -= _it->second * (preAfterPairCnt - preOriginalPairCnt);
             layer_remain[_it->first] -= _it->second * (preAfterPairCnt - preOriginalPairCnt + nxtAfterPairCnt - nxtOriginalPairCnt);
+            nxt_layer_remain[_it->first] -= _it->second * (nxtAfterPairCnt - nxtOriginalPairCnt);
         }
     }
     // calculate profit
     int profit = 0;
     for(int n=0; n<layer_remain.size(); n++) {           
         profit += layer_remain[n];
-        if(layer_remain[n] < 0)
+        if(layer_remain[n] < 0 || pre_layer_remain[n] < 0 || nxt_layer_remain[n] < 0)
             return -1;
     }
     return profit;
@@ -1297,8 +1296,10 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
     priority_queue<pair<Point,int>> p_q;
     Gcell& gcell = grids[source.x][source.y][source.z];
     int wire_length = 1;
-    if(gcell.passingNets.find(NetId) != gcell.passingNets.end())
+    auto pos = gcell.passingNets.find(NetId);
+    if(pos != gcell.passingNets.end() && pos->second != 0)
         wire_length = 0;
+    cout << wire_length << "\n";
     int remain = gcell.capacity-gcell.demand-wire_length;
     if(remain < 0)
         return 0;
@@ -1317,7 +1318,8 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
             Point new_p(f_point.x+1,f_point.y,f_point.z);
             Gcell& new_gcell = grids[f_point.x+1][f_point.y][f_point.z];
             int wire_length = 1;
-            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
+            auto new_pos = new_gcell.passingNets.find(NetId);
+            if(new_pos != new_gcell.passingNets.end() && new_pos->second != 0)
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {              
@@ -1330,7 +1332,8 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
             Point new_p(f_point.x-1,f_point.y,f_point.z);
             Gcell& new_gcell = grids[f_point.x-1][f_point.y][f_point.z];
             int wire_length = 1;
-            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
+            auto new_pos = new_gcell.passingNets.find(NetId);
+            if(new_pos != new_gcell.passingNets.end() && new_pos->second != 0)
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
@@ -1343,7 +1346,8 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
             Point new_p(f_point.x,f_point.y+1,f_point.z);
             Gcell& new_gcell = grids[f_point.x][f_point.y+1][f_point.z];
             int wire_length = 1;
-            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
+            auto new_pos = new_gcell.passingNets.find(NetId);
+            if(new_pos != new_gcell.passingNets.end() && new_pos->second != 0)
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
@@ -1356,7 +1360,8 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
             Point new_p(f_point.x,f_point.y-1,f_point.z);
             Gcell& new_gcell = grids[f_point.x][f_point.y-1][f_point.z];
             int wire_length = 1;
-            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
+            auto new_pos = new_gcell.passingNets.find(NetId);
+            if(new_pos != new_gcell.passingNets.end() && new_pos->second != 0)
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
@@ -1369,7 +1374,8 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
             Point new_p(f_point.x,f_point.y,f_point.z+1);
             Gcell& new_gcell = grids[f_point.x][f_point.y][f_point.z+1];
             int wire_length = 1;
-            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
+            auto new_pos = new_gcell.passingNets.find(NetId);
+            if(new_pos != new_gcell.passingNets.end() && new_pos->second != 0)
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
@@ -1382,7 +1388,8 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
             Point new_p(f_point.x,f_point.y,f_point.z-1);
             Gcell& new_gcell = grids[f_point.x][f_point.y][f_point.z-1];
             int wire_length = 1;
-            if(new_gcell.passingNets.find(NetId) != new_gcell.passingNets.end())
+            auto new_pos = new_gcell.passingNets.find(NetId);
+            if(new_pos != new_gcell.passingNets.end() && new_pos->second != 0)
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
