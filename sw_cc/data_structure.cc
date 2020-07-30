@@ -753,6 +753,7 @@ void RoutingGraph::add_cell(int x, int y, int cellIndex) {
                 Net& net = nets[netIndex];
                 TreeNode& treeNode = net.branch_nodes[Point(x, y, pin.layer)];
                 Node& node = treeNode.node;
+                net.add_net_demand_into_graph(x, y, pin.layer, grids);
                 node.mergedLocalPins.push_back({cellIndex, i});
                 if(node.type == 0) node.type = 1;
                 else if(node.type == 1 && node.mergedLocalPins.size() > 1) node.type = 2;
@@ -802,19 +803,23 @@ void RoutingGraph::del_cell_neighbor(int cellIndex) {
                     net.del_seg_demand_from_graph(x, y, j, grids);
             }
             if(net.branch_nodes.empty() || net.branch_nodes.find(p) == net.branch_nodes.end()) continue;
-            TreeNode& treeNode = net.branch_nodes[p];
-            if(treeNode.node.type == 2) {
-                for(auto it = treeNode.node.mergedLocalPins.begin(); it != treeNode.node.mergedLocalPins.end();) {
-                    if(it->first == cellIndex && it->second == i)
-                        it = treeNode.node.mergedLocalPins.erase(it);
-                    else ++it;
-                }
-                if(treeNode.node.mergedLocalPins.size() == 1)
-                    treeNode.node.type = 1;
 
-                if(treeNode.node.mergedLocalPins.size() >= 1)
-                    continue;
+            TreeNode& treeNode = net.branch_nodes[p];
+
+            for(auto it = treeNode.node.mergedLocalPins.begin(); it != treeNode.node.mergedLocalPins.end();) {
+                if(it->first == cellIndex && it->second == i) {
+                    it = treeNode.node.mergedLocalPins.erase(it);
+                    net.del_seg_demand_from_graph(x, y, pin.layer, grids);
+                }
+                else ++it;
             }
+
+            if(treeNode.node.mergedLocalPins.size() == 1)
+                treeNode.node.type = 1;
+
+            if(treeNode.node.mergedLocalPins.size() >= 1)
+                continue;
+
             for(auto it = treeNode.neighbors.begin(); it != treeNode.neighbors.end(); ++it) {
                 const Point& neighbor = it->first;
                 net.del_twoPinNet_from_graph(it->second, grids);
@@ -851,8 +856,10 @@ void RoutingGraph::del_cell_last_k_neighbor(int cellIndex, unordered_map<int, in
             if(net.branch_nodes.empty() || net.branch_nodes.find(p) == net.branch_nodes.end()) continue;
             TreeNode& treeNode = net.branch_nodes[p];
             for(auto it = treeNode.node.mergedLocalPins.begin(); it != treeNode.node.mergedLocalPins.end();) {
-                if(it->first == cellIndex)
+                if(it->first == cellIndex) {
                     it = treeNode.node.mergedLocalPins.erase(it);
+                    net.del_seg_demand_from_graph(x, y, pin.layer, grids);
+                }
                 else ++it;
             }
 
@@ -1078,6 +1085,9 @@ void RoutingGraph::move_cells_force() {
             auto& net = nets[get<2>(open_net)];
             unordered_map<Point,Point,MyHashFunction> visited_p;
             Point source = get<0>(open_net), sink = get<1>(open_net);
+            if(source == sink)
+                continue;
+
             bool seccess = A_star_routing(source, sink, get<2>(open_net), visited_p);
             if(!seccess) {
                 cout << "A star fail\n";
@@ -1214,7 +1224,7 @@ bool RoutingGraph::find_optimal_pos(Cell cell, vector<pair<Point,int>>& cells_po
     cout << "opt region: " << opt_x_left << " " << opt_y_left << " " << opt_x_right << " " << opt_y_right << endl;
     for(int x=opt_x_left; x<=opt_x_right; x++) {
         for(int y=opt_y_left; y<=opt_y_right; y++) {
-            int profit = check_cell_cost_in_graph(x, y, cell.mcType);
+            int profit = check_cell_cost_in_graph(x, y, cell);
             if(profit > 0)
                 cells_pos.emplace_back(Point(x,y,0), profit);
         }
@@ -1223,12 +1233,31 @@ bool RoutingGraph::find_optimal_pos(Cell cell, vector<pair<Point,int>>& cells_po
     return 1;
 }
 
-int RoutingGraph::check_cell_cost_in_graph(int x, int y, int MCtype) {
+int RoutingGraph::check_cell_cost_in_graph(int x, int y, Cell& cell) {
+    int MCtype = cell.mcType;
     vector<int> layer_remain(layer), pre_layer_remain(layer, 0), nxt_layer_remain(layer, 0);
+    vector<unordered_set<int>> numberOfNetsOnLayer(layer);
     MasterCell& masterCell = masterCells[MCtype];
+    for(auto& pin : cell.pins) {
+        int netIndex = pin.connectedNet;
+        if(netIndex == -1) continue;
+        if(pin.pseudo) {
+            for(int i = pin.actualPinLayer; i <= pin.layer; ++i) {
+                auto pos = grids[x][y][i].passingNets.find(netIndex);
+                if(pos == grids[x][y][i].passingNets.end() || pos->second == 0)
+                    numberOfNetsOnLayer[i].insert(netIndex);
+            }
+        }
+        else {
+            auto pos = grids[x][y][pin.layer].passingNets.find(netIndex);
+            if(pos == grids[x][y][pin.layer].passingNets.end() || pos->second == 0)
+                numberOfNetsOnLayer[pin.layer].insert(netIndex);
+        }
+    }
+
     // initial remain
     for(int n=0; n<layer_remain.size(); n++) {
-        layer_remain[n] = grids[x][y][n].capacity - grids[x][y][n].demand;
+        layer_remain[n] = grids[x][y][n].capacity - grids[x][y][n].demand - numberOfNetsOnLayer[n].size();
         if(y > 0) pre_layer_remain[n] = grids[x][y-1][n].capacity - grids[x][y-1][n].demand;
         if(y < (column-1)) nxt_layer_remain[n] = grids[x][y+1][n].capacity - grids[x][y+1][n].demand;
     }
