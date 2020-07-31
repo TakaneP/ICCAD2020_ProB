@@ -556,18 +556,7 @@ void Net::clear_steiner_point(Point p, vector<vector<vector<Gcell>>>& grids) {
     branch_nodes.erase(p);
 }
 
-void Net::insert_steiner_point(Point p, TwoPinNet& twopin) {
-    auto b_node_iter = branch_nodes.find(p);
-    if(b_node_iter != branch_nodes.end()) {
-        if(b_node_iter->second.node.type == 0) {
-            // steiner point already exist
-            cout << "already exist\n";
-        } else {
-            // local pin
-            cout << "local pin\n";
-        }
-        return;
-    }
+void Net::insert_steiner_point(Point p) {
     unordered_set<Point, MyHashFunction> used_points;
     for(auto& branch_node : this->branch_nodes) {
         for(auto& neighbor : branch_node.second.neighbors) {
@@ -1160,7 +1149,6 @@ TwoPinNet RoutingGraph::convert_path_to_twopin(Point source, Point sink, unorder
     two_pin.paths.push_back({sink,visited_p[sink]});
     // build TwopinNet
     while(true) {
-        cout << tmp_node << endl;
         if(tmp_node == source)
             break;
         tmp_node = visited_p[tmp_node];  
@@ -1474,18 +1462,6 @@ int RoutingGraph::A_star_pin2component_routing(Point source, Point sink, int Net
     // initial comp_grid_map
     vector<vector<vector<int>>> comp_grid_map;
     set_comp_grid_map(comp_grid_map, NetId, sink, component_map, Point(min_x,min_y,min_l), Point(max_x,max_y,max_l));
-    cout << "TEST " << Point(min_x,min_y,min_l) << " " << Point(max_x,max_y,max_l) << " \n";
-    for(int x=0; x<comp_grid_map.size(); x++) {
-        auto& gx = comp_grid_map[x];
-        for(int y=0; y<gx.size(); y++) {
-            auto& gy = gx[y];
-            for(int z=0; z<gy.size(); z++) {
-                auto& gz = gy[z];
-                if(gz != 0)
-                    cout << "(" << x << "," << y << "," << z << ")\n";
-            }
-        }
-    }
 
     Gcell& gcell = grids[source.x][source.y][source.z];
     int wire_length = 1;
@@ -1605,7 +1581,6 @@ void RoutingGraph::set_comp_grid_map(std::vector<std::vector<std::vector<int>>>&
     }
     Net& net = nets[netId];
     int sink_comp = component_map[sink];
-    cout << "sink_comp: " << sink_comp << endl;
     unordered_set<Point, MyHashFunction> sink_set;
     for(auto& comp : component_map) {
         if(comp.second == sink_comp) {
