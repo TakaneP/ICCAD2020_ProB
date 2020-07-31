@@ -135,6 +135,7 @@ struct Net{
     void decrese_degree_middle_p(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, 
         Point now_p, Point dir);
     void print_two_pins(std::vector<TwoPinNet>& routingTree);
+    void print_branch_nodes();
     void construct_branch_nodes(std::vector<TwoPinNet>& routingTree);
     void remove_dangling_wire(std::vector<std::vector<std::vector<Gcell>>>& grids);
     void clear_steiner_point(Point p, std::vector<std::vector<std::vector<Gcell>>>& grids);

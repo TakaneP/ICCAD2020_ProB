@@ -27,8 +27,8 @@ int main(int argc, char* argv[])
 	//cout << fluteTree.length << "\n";
 
     routingGraph->construct_2pin_nets();
-    //routingGraph->move_cells_force();
-    Point insert_p(1,2,1);
+    routingGraph->move_cells_force();
+    /*Point insert_p(1,2,1);
     routingGraph->del_cell_neighbor(7);
     routingGraph->add_cell(2,2,7);
     unordered_map<Point, int, MyHashFunction> component_map;
@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
                 cout << "\t\t" << path.first << "->" << path.second << endl;
             }
         }
-    }
+    }*/
     if(argc == 3) {
         string outputFile = argv[2];
         output_file(routingGraph, outputFile);

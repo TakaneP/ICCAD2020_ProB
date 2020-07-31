@@ -25,7 +25,7 @@ bool operator<(const pair<Point,int>& p1, const pair<Point,int>& p2) {
 }
 
 bool in_range(int target, int a, int b) {
-    return target >= min(a,b) && target < max(a,b);
+    return target > min(a,b) && target < max(a,b);
 }
 
 int distance(const Point& p1, const Point& p2) {
@@ -332,6 +332,17 @@ void Net::print_two_pins(std::vector<TwoPinNet>& routingTree) {
     }  
 }
 
+void Net::print_branch_nodes() {
+    for(auto& node : branch_nodes) {
+        cout << node.first << endl;
+        for(auto& neighbor : node.second.neighbors) {
+            cout << "\t" << neighbor.first << endl;
+            for(auto& path : neighbor.second.paths)
+                cout << "\t\t" << path.first << "->" << path.second << endl;
+        }
+    }  
+}
+
 void Net::construct_branch_nodes(std::vector<TwoPinNet>& routingTree) {
     // construct neighbor relation
     for(auto& twopin : routingTree) {
@@ -572,10 +583,13 @@ void Net::insert_steiner_point(Point p) {
                 Point tmp_first = path.first, tmp_second = path.second;
                 if(dir != p_dir)
                     continue;
+                cout << "s_path: " << path.first << " " << path.second << endl;
                 if( (dir.x != 0 && in_range(p.x, path.first.x, path.second.x)) ||
                     (dir.y != 0 && in_range(p.y, path.first.y, path.second.y)) ||
-                    (dir.z != 0 && in_range(p.z, path.first.z, path.second.z)) ) {
-                    // divide path                  
+                    (dir.z != 0 && in_range(p.z, path.first.z, path.second.z)) ||
+                    (p == path.first) || (p == path.second) ) {                   
+                    // divide path       
+                    cout << "In\n";
                     if(p != path.first && p != path.second) {               
                         path.second = p;
                         ori_paths.insert(ori_paths.begin()+path_idx+1, {p, tmp_second});
@@ -883,6 +897,14 @@ void RoutingGraph::del_cell_last_k_neighbor(int cellIndex, unordered_map<int, in
                         break;
                     }
                 }
+                if(neighborTreeNode.node.type == 0 && neighborTreeNode.neighbors.size() == 2) {
+                    cout << "Clear steiner point " << neighbor << endl;
+                    cout << "Before steiner point\n"; 
+                    net.print_branch_nodes();  
+                    net.clear_steiner_point(neighbor, grids);                   
+                    cout << "after Clear steiner point\n";
+                    net.print_branch_nodes();
+                }
                 treeNode.neighbors.pop_back();
             }
             netK.erase(pos);
@@ -1043,7 +1065,7 @@ void RoutingGraph::move_cells_force() {
         if(this->movedCell.size() >= maxCellMove) return;
         Cell cell = cellInstances[cell_idx];
         if(!cell.movable) continue;
-        //if(cell_idx > 5565) return;
+        //if(cell_idx > 6) return;
         int cell_ori_x = cell.x, cell_ori_y = cell.y;
         cout << "\ncell " << cell_idx << " (" << cell.x << "," << cell.y << ")\n";
         vector<pair<Point,int>> cells_pos;
@@ -1081,18 +1103,26 @@ void RoutingGraph::move_cells_force() {
         for(auto& open_net : open_nets) {
             auto& net = nets[get<2>(open_net)];
             unordered_map<Point,Point,MyHashFunction> visited_p;
-            Point source = get<0>(open_net), sink = get<1>(open_net);
+			unordered_map<Point, int, MyHashFunction> component_map;
+			net.set_point_component(component_map);
+            Point source = get<0>(open_net), sink = get<1>(open_net), reach_p;
             if(source == sink) continue;
-            bool seccess = A_star_routing(source, sink, get<2>(open_net), visited_p);
-            if(!seccess) {
+            int find_flg = A_star_pin2component_routing(source, sink, get<2>(open_net), visited_p, component_map, reach_p);
+            if(find_flg == 0) {
                 cout << "A star fail\n";
                 // reverse
                 routing_success = 0;
                 break;
             }
             // success one net
-            cout << "A star seccess , Net " << get<2>(open_net) << "\n";          
+            cout << "A star seccess , Net " << get<2>(open_net) << "\n";      
+            cout << "find flg: " << find_flg << " reach_p: " << reach_p << endl;   
+            sink = reach_p; 
             TwoPinNet two_pin = convert_path_to_twopin(source, sink, visited_p);
+            cout << "Path:\n";
+            for(auto& path : two_pin.paths) {
+                cout << path.first << "->" << path.second << endl;
+            }
             two_pin.update_wire_length();
             net_wirelength -= two_pin.wire_length;
             if(net_wirelength <= 0) {
@@ -1100,14 +1130,25 @@ void RoutingGraph::move_cells_force() {
                 routing_success = 0;
                 break;
             }
-            /*cout << "Twopin:\n";
-            for(auto& path : two_pin.paths) {
-                cout << path.first << " -> " << path.second << endl;
-            }
-            cout << "Source: " << source.x << " " << source.y << " " << source.z << "\n";*/
+            if(find_flg == 2) {
+				if(source == reach_p) {
+					//net.branch_nodes[reach_p].node.type = 1;
+					// tmp
+                    cout << "Tmp error\n";
+					routing_success = 0;
+					break;
+				}
+				else {
+                    if(net.branch_nodes.find(reach_p) == net.branch_nodes.end()) {
+                        cout << "Insert steiner " << reach_p << endl;
+                        net.insert_steiner_point(reach_p);
+                        net.print_branch_nodes();
+                    }
+				}
+			}
             // rebuild branch_nodes
             net.branch_nodes[source].neighbors.emplace_back(sink,two_pin);
-            net.branch_nodes[sink].neighbors.emplace_back(source,two_pin);
+            net.branch_nodes[sink].neighbors.emplace_back(source,two_pin_reverse(two_pin));
             // add two_pin demand into graph
             net.add_twopin_demand_into_graph(two_pin, grids);
             netK[net.netId]++;
@@ -1115,6 +1156,7 @@ void RoutingGraph::move_cells_force() {
         if(routing_success)
             movedCell.insert(cell_idx);
         else {
+            cout << "del cell (" << cell.x << "," << cell.y << ")\n";
             del_cell_last_k_neighbor(cell_idx, netK);
             if(cell_ori_x == cell.originalX && cell_ori_y == cell.originalY)
                 movedCell.erase(cell_idx);
@@ -1476,8 +1518,10 @@ int RoutingGraph::A_star_pin2component_routing(Point source, Point sink, int Net
         auto frontier = p_q.top();
         p_q.pop();
         auto& f_point = frontier.first;
-        if(f_point == sink)
+        if(f_point == sink) {
+            reach_p = sink;
             return 1;
+        }
         Point local_p = f_point-Point(min_x,min_y,min_l);
         if(comp_grid_map[local_p.x][local_p.y][local_p.z] > 0) {
             reach_p = f_point;
