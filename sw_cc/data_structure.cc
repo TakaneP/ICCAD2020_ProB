@@ -583,13 +583,11 @@ void Net::insert_steiner_point(Point p) {
                 Point tmp_first = path.first, tmp_second = path.second;
                 if(dir != p_dir)
                     continue;
-                cout << "s_path: " << path.first << " " << path.second << endl;
                 if( (dir.x != 0 && in_range(p.x, path.first.x, path.second.x)) ||
                     (dir.y != 0 && in_range(p.y, path.first.y, path.second.y)) ||
                     (dir.z != 0 && in_range(p.z, path.first.z, path.second.z)) ||
                     (p == path.first) || (p == path.second) ) {                   
                     // divide path       
-                    cout << "In\n";
                     if(p != path.first && p != path.second) {               
                         path.second = p;
                         ori_paths.insert(ori_paths.begin()+path_idx+1, {p, tmp_second});
@@ -905,7 +903,7 @@ void RoutingGraph::del_cell_last_k_neighbor(int cellIndex, unordered_map<int, in
                     cout << "after Clear steiner point\n";
                     net.print_branch_nodes();
                 }
-                treeNode.neighbors.pop_back();
+                treeNode.neighbors.pop_back();             
             }
             netK.erase(pos);
 
@@ -1152,6 +1150,8 @@ void RoutingGraph::move_cells_force() {
             // add two_pin demand into graph
             net.add_twopin_demand_into_graph(two_pin, grids);
             netK[net.netId]++;
+            cout << "After test\n";
+            net.print_branch_nodes();
         }
         if(routing_success)
             movedCell.insert(cell_idx);
@@ -1173,11 +1173,14 @@ void RoutingGraph::move_cells_force() {
                 }
                 if(n == net.branch_nodes[p1].neighbors.size()) {
                     net.branch_nodes[p1].neighbors.emplace_back(get<1>(open_net),get<4>(open_net));
-                    net.branch_nodes[get<1>(open_net)].neighbors.emplace_back(p1,get<4>(open_net));
+                    net.branch_nodes[get<1>(open_net)].neighbors.emplace_back( p1, two_pin_reverse(get<4>(open_net)) );
                 }
                 // add two_pin demand into graph            
                 net.add_twopin_demand_into_graph(get<4>(open_net), grids);
+                cout << "after reverse\n";
+                net.print_branch_nodes();
             }
+            cout << "after end\n";
         }
     }
 }
