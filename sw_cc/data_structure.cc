@@ -1174,12 +1174,6 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
         return 0;
     // source, sink, netId, source.node, twopin
     vector<tuple<Point,Point,int,Node,TwoPinNet>> open_nets;
-    int net_wirelength = 0;
-    for(auto& pin : cell.pins) {
-        if(pin.connectedNet == -1)
-            continue;
-    // source, sink, netId, source.node, twopin
-    vector<tuple<Point,Point,int,Node,TwoPinNet>> open_nets;
     // key is netId, value is branch_node
     map<int,unordered_map<Point, TreeNode, MyHashFunction>> branchs_copy;
     unordered_set<int> updated_branchs;
@@ -1211,8 +1205,8 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
     for(auto& open_net : open_nets) {
         auto& net = nets[get<2>(open_net)];
         unordered_map<Point,Point,MyHashFunction> visited_p;
-			  unordered_map<Point, int, MyHashFunction> component_map;
-			  net.set_point_component(component_map);
+        unordered_map<Point, int, MyHashFunction> component_map;
+	    net.set_point_component(component_map);
         Point source = get<0>(open_net), sink = get<1>(open_net), reach_p;
         if(source == sink) continue;
         int find_flg = A_star_pin2component_routing(source, sink, get<2>(open_net), visited_p, component_map, reach_p);
@@ -1235,19 +1229,19 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
             break;
         }
         if(find_flg == 2) {
-				    if(source == reach_p) {
-					      //net.branch_nodes[reach_p].node.type = 1;
-					      // tmp
+		    if(source == reach_p) {
+			    //net.branch_nodes[reach_p].node.type = 1;
+			    // tmp
                 cout << "#Tmp error\n";
-				        routing_success = 0;
-					      break;
-				    }
-				    else {
+	            routing_success = 0;
+			    break;
+		    }
+		    else {
                 if(net.branch_nodes.find(reach_p) == net.branch_nodes.end()) {
                     net.insert_steiner_point(reach_p);
                 }
-	  	      }
-	      }
+	  	    }
+	    }
         // rebuild branch_nodes
         net.branch_nodes[source].neighbors.emplace_back(sink,two_pin);
         net.branch_nodes[sink].neighbors.emplace_back(source,two_pin_reverse(two_pin));
