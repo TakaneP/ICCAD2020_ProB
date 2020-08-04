@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
     int prevSize = 0;
     while(1) {
         routingGraph->move_cells_force();
-        if((int)(routingGraph->movedCell.size() - prevSize) < 0) break;
+        if((int)(routingGraph->movedCell.size() - prevSize) <= 0) break;
         else prevSize = routingGraph->movedCell.size();
     }
     /*cout << routingGraph->nets[0].branch_nodes.begin()->second.neighbors[0].second.n1.p << " to "
