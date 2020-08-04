@@ -572,6 +572,8 @@ bool Net::insert_steiner_point(Point p) {
     for(auto& branch_node : this->branch_nodes) {
         for(auto& neighbor : branch_node.second.neighbors) {
             // traverse before
+            if(neighbor.first == Point(6,12,4) || neighbor.first == Point(6,14,4))
+                cout << "Point: " << neighbor.first << endl;
             if(used_points.find(neighbor.first) != used_points.end())
                 continue;
             used_points.insert(neighbor.first);
@@ -579,7 +581,7 @@ bool Net::insert_steiner_point(Point p) {
             for(int path_idx=0; path_idx<ori_paths.size(); path_idx++) {
                 auto& path = ori_paths[path_idx];
                 Point dir = norm(path.first - path.second);
-                Point p_dir = norm(p - path.first);
+                Point p_dir = (p == path.first) ? norm(p-path.second) : norm(p-path.first);
                 Point tmp_first = path.first, tmp_second = path.second;
                 if(dir != p_dir)
                     continue;
@@ -592,6 +594,7 @@ bool Net::insert_steiner_point(Point p) {
                         path.second = p;
                         ori_paths.insert(ori_paths.begin()+path_idx+1, {p, tmp_second});
                     }
+                    cout << "#In\n";
                     vector<pair<Point,Point>> new_paths(ori_paths.begin()+path_idx+1, ori_paths.end());
                     ori_paths.erase(ori_paths.begin()+path_idx+1, ori_paths.end());
                     // insert new steiner point
@@ -904,13 +907,13 @@ void RoutingGraph::del_cell_last_k_neighbor(int cellIndex, unordered_map<int, in
                     }
                 }
                 if(neighborTreeNode.node.type == 0 && neighborTreeNode.neighbors.size() == 2) {
-                    cout << "Clear steiner point " << neighbor << endl;
-                    cout << "Before steiner point\n"; 
-                    if(net.netId == 1691)
+                    cout << "#Clear steiner point " << neighbor << endl;
+                    cout << "#Before steiner point\n"; 
+                    if(net.netId == 987)
                     net.print_branch_nodes();  
                     net.clear_steiner_point(neighbor, grids);                   
-                    cout << "after Clear steiner point\n";
-                    if(net.netId == 1691)
+                    cout << "#after Clear steiner point\n";
+                    if(net.netId == 987)
                     net.print_branch_nodes();
                 }
                 treeNode.neighbors.pop_back();             
@@ -1073,11 +1076,11 @@ void RoutingGraph::move_cells_force() {
         if(this->movedCell.size() >= maxCellMove) return;
         Cell& cell = cellInstances[cell_idx];
         if(!cell.movable) continue;
-        if(cell_idx > 720) return;
+        if(cell_idx > 1052) return;
         int cell_ori_x = cell.x, cell_ori_y = cell.y;
-        cout << "\ncell " << cell_idx << " (" << cell.x << "," << cell.y << ")\n";
-        cout << "ori\n";
-        nets[1691].print_branch_nodes();
+        cout << "\n#cell " << cell_idx << " (" << cell.x << "," << cell.y << ")\n";
+        cout << "#ori\n";
+        nets[987].print_branch_nodes();
         vector<pair<Point,int>> cells_pos;
         bool opt_flag = find_optimal_pos(cell, cells_pos);
         if(cells_pos.size() == 0)
@@ -1087,13 +1090,19 @@ void RoutingGraph::move_cells_force() {
             continue;
         // source, sink, netId, source.node, twopin
         vector<tuple<Point,Point,int,Node,TwoPinNet>> open_nets;
+        // key is netId, value is branch_node
+        map<int,unordered_map<Point, TreeNode, MyHashFunction>> branchs_copy;
+        unordered_set<int> updated_branchs;
         int net_wirelength = 0;
         for(auto& pin : cell.pins) {
             if(pin.connectedNet == -1)
                 continue;
             auto& net = nets[pin.connectedNet];
+            // copy branch_node for reverse
+            if(branchs_copy.find(pin.connectedNet) == branchs_copy.end())
+                branchs_copy[pin.connectedNet] = net.branch_nodes;
             Point cell_p(cell.x, cell.y, pin.layer);
-            cout << "net id = " << net.netId << endl;
+            cout << "#net id = " << net.netId << endl;
             for(auto& neighbor : net.branch_nodes[cell_p].neighbors) {
                 Point neighbor_p = neighbor.first;
                 neighbor.second.update_wire_length();
@@ -1119,17 +1128,17 @@ void RoutingGraph::move_cells_force() {
             if(source == sink) continue;
             int find_flg = A_star_pin2component_routing(source, sink, get<2>(open_net), visited_p, component_map, reach_p);
             if(find_flg == 0) {
-                cout << "A star fail\n";
+                cout << "#A star fail\n";
                 // reverse
                 routing_success = 0;
                 break;
             }
             // success one net
-            cout << "A star seccess , Net " << get<2>(open_net) << "\n";      
-            cout << "find flg: " << find_flg << " reach_p: " << reach_p << endl;   
+            cout << "#A star seccess , Net " << get<2>(open_net) << "\n";      
+            cout << "#find flg: " << find_flg << " reach_p: " << reach_p << endl;   
             sink = reach_p; 
             TwoPinNet two_pin = convert_path_to_twopin(source, sink, visited_p);
-            cout << "Path:\n";
+            cout << "#Path:\n";
             for(auto& path : two_pin.paths) {
                 cout << path.first << "->" << path.second << endl;
             }
@@ -1137,9 +1146,9 @@ void RoutingGraph::move_cells_force() {
             net_wirelength -= two_pin.wire_length;
             if(net_wirelength <= 0) {
                 // worse routing
-                cout << "worse wl\n";
-                if(get<2>(open_net) == 1691)
-                nets[1691].print_branch_nodes();
+                cout << "#worse wl\n";
+                if(get<2>(open_net) == 987)
+                nets[987].print_branch_nodes();
                 routing_success = 0;
                 break;
             }
@@ -1147,15 +1156,15 @@ void RoutingGraph::move_cells_force() {
 				if(source == reach_p) {
 					//net.branch_nodes[reach_p].node.type = 1;
 					// tmp
-                    cout << "Tmp error\n";
+                    cout << "#Tmp error\n";
 					routing_success = 0;
 					break;
 				}
 				else {
                     if(net.branch_nodes.find(reach_p) == net.branch_nodes.end()) {
-                        cout << "Insert steiner " << reach_p << endl;
+                        cout << "#Insert steiner " << reach_p << endl;
                         net.insert_steiner_point(reach_p);
-                        if(net.netId == 1691)
+                        if(net.netId == 987)
                             net.print_branch_nodes();
                     }
 				}
@@ -1166,30 +1175,37 @@ void RoutingGraph::move_cells_force() {
             // add two_pin demand into graph
             net.add_twopin_demand_into_graph(two_pin, grids);
             netK[net.netId]++;
-            cout << "After test\n";
-            if(net.netId == 1691)
+            cout << "#After test\n";
+            if(net.netId == 987)
             net.print_branch_nodes();
         }
         if(routing_success)
             movedCell.insert(cell_idx);
         else {
-            cout << "del cell (" << cell.x << "," << cell.y << ")\n";
+            cout << "#del cell (" << cell.x << "," << cell.y << ")\n";
             // reverse original net
             del_cell_last_k_neighbor(cell_idx, netK);
-            cout << "after delete\n";
-            nets[1691].print_branch_nodes();
+            cout << "#after delete\n";
+            nets[987].print_branch_nodes();
             if(cell_ori_x == cell.originalX && cell_ori_y == cell.originalY)
                 movedCell.erase(cell_idx);
-            add_cell(cell_ori_x,cell_ori_y,cell_idx);      
+            add_cell(cell_ori_x,cell_ori_y,cell_idx);
             for(auto& open_net : open_nets) {
                 auto& net = nets[get<2>(open_net)];
+                // resume net.branch_nodes
+                if(updated_branchs.find(net.netId) == updated_branchs.end()) {
+                    updated_branchs.insert(net.netId);
+                    net.branch_nodes = branchs_copy[net.netId];
+                }              
                 Point p1(cell_ori_x, cell_ori_y, get<0>(open_net).z);
                 if(p1 == get<1>(open_net)) 
                     continue;
-                if(net.branch_nodes.find(get<1>(open_net)) == net.branch_nodes.end()) {
+                /*if(net.branch_nodes.find(get<1>(open_net)) == net.branch_nodes.end()) {
                     bool steiner_flg = net.insert_steiner_point(get<1>(open_net));
                     if(steiner_flg)
-                        cout << "Insert success\n";
+                        cout << "#Insert success\n";
+                    else
+                        cout << "#Insert fail\n";                   
                 }
                 int n;
                 for(n=0; n<net.branch_nodes[p1].neighbors.size(); n++) {
@@ -1199,14 +1215,14 @@ void RoutingGraph::move_cells_force() {
                 if(n == net.branch_nodes[p1].neighbors.size()) {
                     net.branch_nodes[p1].neighbors.emplace_back(get<1>(open_net),get<4>(open_net));
                     net.branch_nodes[get<1>(open_net)].neighbors.emplace_back( p1, two_pin_reverse(get<4>(open_net)) );
-                }
+                }*/
                 // add two_pin demand into graph            
                 net.add_twopin_demand_into_graph(get<4>(open_net), grids);
-                cout << "after reverse " << get<2>(open_net) << " from " << p1 << " to " << get<1>(open_net) << "\n";
-                if(net.netId == 1691)
+                cout << "#after reverse " << get<2>(open_net) << " from " << p1 << " to " << get<1>(open_net) << "\n";
+                if(net.netId == 987)
                 net.print_branch_nodes();
             }
-            cout << "after end\n";
+            cout << "#after end\n";
         }
     }
 }
