@@ -36,18 +36,6 @@ int main(int argc, char* argv[])
         if((int)(routingGraph->movedCell.size() - prevSize) <= 0) break;
         else prevSize = routingGraph->movedCell.size();
     }
-    /*cout << routingGraph->nets[0].branch_nodes.begin()->second.neighbors[0].second.n1.p << " to "
-        << routingGraph->nets[0].branch_nodes.begin()->second.neighbors[0].second.n2.p << "\n\n";
-    for(auto& path : routingGraph->nets[0].branch_nodes.begin()->second.neighbors[0].second.paths) {
-        cout << path.first << " -> " << path.second << endl;
-    }
-    Point insert_p(1,2,1);
-    TwoPinNet a;
-    routingGraph->nets[0].insert_steiner_point(insert_p, a);
-    cout << "after\n";
-    for(auto& path : routingGraph->nets[0].branch_nodes.begin()->second.neighbors[0].second.paths) {
-        cout << path.first << " -> " << path.second << endl;
-    }*/
     if(argc == 3) {
         string outputFile = argv[2];
         output_file(routingGraph, outputFile);

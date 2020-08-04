@@ -25,7 +25,7 @@ bool operator<(const pair<Point,int>& p1, const pair<Point,int>& p2) {
 }
 
 bool in_range(int target, int a, int b) {
-    return target >= min(a,b) && target < max(a,b);
+    return target > min(a,b) && target < max(a,b);
 }
 
 int distance(const Point& p1, const Point& p2) {
@@ -332,6 +332,17 @@ void Net::print_two_pins(std::vector<TwoPinNet>& routingTree) {
     }  
 }
 
+void Net::print_branch_nodes() {
+    for(auto& node : branch_nodes) {
+        cout << node.first << " " << node.second.node.type << endl;
+        for(auto& neighbor : node.second.neighbors) {
+            cout << "\t" << neighbor.first << endl;
+            for(auto& path : neighbor.second.paths)
+                cout << "\t\t" << path.first << "->" << path.second << endl;
+        }
+    }  
+}
+
 void Net::construct_branch_nodes(std::vector<TwoPinNet>& routingTree) {
     // construct neighbor relation
     for(auto& twopin : routingTree) {
@@ -554,37 +565,27 @@ void Net::clear_steiner_point(Point p, vector<vector<vector<Gcell>>>& grids) {
     branch_nodes.erase(p);
 }
 
-void Net::insert_steiner_point(Point p, TwoPinNet& twopin) {
-    auto b_node_iter = branch_nodes.find(p);
-    if(b_node_iter != branch_nodes.end()) {
-        if(b_node_iter->second.node.type == 0) {
-            // steiner point already exist
-            cout << "already exist\n";
-        } else {
-            // local pin
-            cout << "local pin\n";
-        }
-        return;
-    }
+bool Net::insert_steiner_point(Point p) {
     unordered_set<Point, MyHashFunction> used_points;
     for(auto& branch_node : this->branch_nodes) {
+        used_points.insert(branch_node.first);
         for(auto& neighbor : branch_node.second.neighbors) {
             // traverse before
             if(used_points.find(neighbor.first) != used_points.end())
-                continue;
-            used_points.insert(neighbor.first);
+                continue;         
             vector<pair<Point,Point>>& ori_paths = neighbor.second.paths;
             for(int path_idx=0; path_idx<ori_paths.size(); path_idx++) {
                 auto& path = ori_paths[path_idx];
                 Point dir = norm(path.first - path.second);
-                Point p_dir = norm(p - path.first);
+                Point p_dir = (p == path.first) ? norm(p-path.second) : norm(p-path.first);
                 Point tmp_first = path.first, tmp_second = path.second;
                 if(dir != p_dir)
                     continue;
                 if( (dir.x != 0 && in_range(p.x, path.first.x, path.second.x)) ||
                     (dir.y != 0 && in_range(p.y, path.first.y, path.second.y)) ||
-                    (dir.z != 0 && in_range(p.z, path.first.z, path.second.z)) ) {
-                    // divide path                  
+                    (dir.z != 0 && in_range(p.z, path.first.z, path.second.z)) ||
+                    (p == path.first) || (p == path.second) ) {                   
+                    // divide path       
                     if(p != path.first && p != path.second) {               
                         path.second = p;
                         ori_paths.insert(ori_paths.begin()+path_idx+1, {p, tmp_second});
@@ -628,11 +629,12 @@ void Net::insert_steiner_point(Point p, TwoPinNet& twopin) {
                             branch_nodes[ori_right_p].neighbors[n].second = r_twopin;
                         }
                     }
-                    return;
+                    return 1;
                 }
             }
         }
     }
+    return 0; 
 }
 
 void Net::set_point_component(unordered_map<Point, int, MyHashFunction>& component_map) {
@@ -757,6 +759,9 @@ void RoutingGraph::add_cell(int x, int y, int cellIndex) {
             int netIndex = pin.connectedNet;
             if(netIndex != -1) {
                 Net& net = nets[netIndex];
+                if(net.branch_nodes.find(Point(x, y, pin.layer)) == net.branch_nodes.end()) {
+                    net.insert_steiner_point(Point(x, y, pin.layer));
+                }
                 TreeNode& treeNode = net.branch_nodes[Point(x, y, pin.layer)];
                 Node& node = treeNode.node;
                 net.add_net_demand_into_graph(x, y, pin.layer, grids);
@@ -877,6 +882,10 @@ void RoutingGraph::del_cell_last_k_neighbor(int cellIndex, unordered_map<int, in
                 net.branch_nodes.erase(p);
                 continue;
             }
+            if(treeNode.neighbors.size() == 2 && treeNode.node.type == 0) {
+                net.clear_steiner_point(p, grids);
+                continue;
+            }
 
             unordered_map<int, int>::iterator pos = netK.find(netIndex);
             if(pos == netK.end()) continue;
@@ -892,7 +901,10 @@ void RoutingGraph::del_cell_last_k_neighbor(int cellIndex, unordered_map<int, in
                         break;
                     }
                 }
-                treeNode.neighbors.pop_back();
+                if(neighborTreeNode.node.type == 0 && neighborTreeNode.neighbors.size() == 2) {
+                    net.clear_steiner_point(neighbor, grids);                   
+                }
+                treeNode.neighbors.pop_back();             
             }
             netK.erase(pos);
 
@@ -902,7 +914,7 @@ void RoutingGraph::del_cell_last_k_neighbor(int cellIndex, unordered_map<int, in
             if(treeNode.neighbors.empty())
                 net.branch_nodes.erase(p);
             else
-                treeNode.node.type = 0;
+                treeNode.node.type = 0;           
         }
     }
 }
@@ -1166,14 +1178,26 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
     for(auto& pin : cell.pins) {
         if(pin.connectedNet == -1)
             continue;
+    // source, sink, netId, source.node, twopin
+    vector<tuple<Point,Point,int,Node,TwoPinNet>> open_nets;
+    // key is netId, value is branch_node
+    map<int,unordered_map<Point, TreeNode, MyHashFunction>> branchs_copy;
+    unordered_set<int> updated_branchs;
+    int net_wirelength = 0;
+    for(auto& pin : cell.pins) {
+        if(pin.connectedNet == -1)
+            continue;
         auto& net = nets[pin.connectedNet];
+        // copy branch_node for reverse
+        if(branchs_copy.find(pin.connectedNet) == branchs_copy.end())
+            branchs_copy[pin.connectedNet] = net.branch_nodes;
         Point cell_p(cell.x, cell.y, pin.layer);
         for(auto& neighbor : net.branch_nodes[cell_p].neighbors) {
             Point neighbor_p = neighbor.first;
             neighbor.second.update_wire_length();
             net_wirelength += neighbor.second.wire_length;
             open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), neighbor_p, net.netId, net.branch_nodes[cell_p].node, neighbor.second);
-        }
+        }        
         if(net.branch_nodes[cell_p].node.type == 2 && net.branch_nodes[cell_p].neighbors.empty()) {
             net_wirelength++;
             open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), Point(cell_ori_x,cell_ori_y,pin.layer), net.netId, Node(), TwoPinNet());
@@ -1187,15 +1211,21 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
     for(auto& open_net : open_nets) {
         auto& net = nets[get<2>(open_net)];
         unordered_map<Point,Point,MyHashFunction> visited_p;
-        Point source = get<0>(open_net), sink = get<1>(open_net);
+			  unordered_map<Point, int, MyHashFunction> component_map;
+			  net.set_point_component(component_map);
+        Point source = get<0>(open_net), sink = get<1>(open_net), reach_p;
         if(source == sink) continue;
-        bool seccess = A_star_routing(source, sink, get<2>(open_net), visited_p);
-        if(!seccess) {
+        int find_flg = A_star_pin2component_routing(source, sink, get<2>(open_net), visited_p, component_map, reach_p);
+        if(find_flg == 0) {
+            cout << "#A star fail\n";
             // reverse
             routing_success = 0;
             break;
         }
         // success one net
+        cout << "#A star seccess , Net " << get<2>(open_net) << "\n";      
+        cout << "#find flg: " << find_flg << " reach_p: " << reach_p << endl;   
+        sink = reach_p; 
         TwoPinNet two_pin = convert_path_to_twopin(source, sink, visited_p);
         two_pin.update_wire_length();
         net_wirelength -= two_pin.wire_length;
@@ -1204,9 +1234,23 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
             routing_success = 0;
             break;
         }
+        if(find_flg == 2) {
+				    if(source == reach_p) {
+					      //net.branch_nodes[reach_p].node.type = 1;
+					      // tmp
+                cout << "#Tmp error\n";
+				        routing_success = 0;
+					      break;
+				    }
+				    else {
+                if(net.branch_nodes.find(reach_p) == net.branch_nodes.end()) {
+                    net.insert_steiner_point(reach_p);
+                }
+	  	      }
+	      }
         // rebuild branch_nodes
         net.branch_nodes[source].neighbors.emplace_back(sink,two_pin);
-        net.branch_nodes[sink].neighbors.emplace_back(source,two_pin);
+        net.branch_nodes[sink].neighbors.emplace_back(source,two_pin_reverse(two_pin));
         // add two_pin demand into graph
         net.add_twopin_demand_into_graph(two_pin, grids);
         netK[net.netId]++;
@@ -1216,6 +1260,8 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
         return 1;
     }
     else {
+        cout << "#del cell (" << cell.x << "," << cell.y << ")\n";
+        // reverse original net
         del_cell_last_k_neighbor(cell_idx, netK);
         if(cell_ori_x == cell.originalX && cell_ori_y == cell.originalY)
             movedCell.erase(cell_idx);
@@ -1562,18 +1608,6 @@ int RoutingGraph::A_star_pin2component_routing(Point source, Point sink, int Net
     // initial comp_grid_map
     vector<vector<vector<int>>> comp_grid_map;
     set_comp_grid_map(comp_grid_map, NetId, sink, component_map, Point(min_x,min_y,min_l), Point(max_x,max_y,max_l));
-    cout << "TEST " << Point(min_x,min_y,min_l) << " " << Point(max_x,max_y,max_l) << " \n";
-    for(int x=0; x<comp_grid_map.size(); x++) {
-        auto& gx = comp_grid_map[x];
-        for(int y=0; y<gx.size(); y++) {
-            auto& gy = gx[y];
-            for(int z=0; z<gy.size(); z++) {
-                auto& gz = gy[z];
-                if(gz != 0)
-                    cout << "(" << x << "," << y << "," << z << ")\n";
-            }
-        }
-    }
 
     Gcell& gcell = grids[source.x][source.y][source.z];
     int wire_length = 1;
@@ -1588,8 +1622,10 @@ int RoutingGraph::A_star_pin2component_routing(Point source, Point sink, int Net
         auto frontier = p_q.top();
         p_q.pop();
         auto& f_point = frontier.first;
-        if(f_point == sink)
+        if(f_point == sink) {
+            reach_p = sink;
             return 1;
+        }
         Point local_p = f_point-Point(min_x,min_y,min_l);
         if(comp_grid_map[local_p.x][local_p.y][local_p.z] > 0) {
             reach_p = f_point;
@@ -1693,7 +1729,6 @@ void RoutingGraph::set_comp_grid_map(std::vector<std::vector<std::vector<int>>>&
     }
     Net& net = nets[netId];
     int sink_comp = component_map[sink];
-    cout << "sink_comp: " << sink_comp << endl;
     unordered_set<Point, MyHashFunction> sink_set;
     for(auto& comp : component_map) {
         if(comp.second == sink_comp) {
