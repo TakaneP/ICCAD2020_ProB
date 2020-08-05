@@ -194,9 +194,13 @@ public:
     // return cell profit after put in cell
     int check_cell_cost_in_graph(int x, int y, Cell& cell);
     int Z_shape_routing(Point source, Point sink, int NetId);
+    bool connect_all_nets(std::vector<std::tuple<Point,Point,int,Node,TwoPinNet>>& open_nets, int& net_wirelength, 
+        std::unordered_map<int, int>& netK);
     bool A_star_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
     // return, 0: not find, 1 reach sink, 2 reach tree branch
     int A_star_pin2component_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p,
+        std::unordered_map<Point, int, MyHashFunction>& component_map, Point& reach_p);
+    int A_star_tree2tree(Point source, std::unordered_set<int> sink_comp_set, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p,
         std::unordered_map<Point, int, MyHashFunction>& component_map, Point& reach_p);
     int check_segment_profit(Point from, Point to, int NetId);
     TwoPinNet convert_path_to_twopin(Point source, Point sink, std::unordered_map<Point,Point,MyHashFunction>& visited_p);

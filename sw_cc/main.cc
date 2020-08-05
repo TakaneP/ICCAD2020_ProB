@@ -31,11 +31,11 @@ int main(int argc, char* argv[])
 	//cout << fluteTree.length << "\n";
     routingGraph->construct_2pin_nets();
     int prevSize = 0;
-    while(1) {
+    //while(1) {
         routingGraph->move_cells_force();
-        if((int)(routingGraph->movedCell.size() - prevSize) <= 0) break;
-        else prevSize = routingGraph->movedCell.size();
-    }
+        //if((int)(routingGraph->movedCell.size() - prevSize) <= 0) break;
+        //else prevSize = routingGraph->movedCell.size();
+    //}
     if(argc == 3) {
         string outputFile = argv[2];
         output_file(routingGraph, outputFile);
