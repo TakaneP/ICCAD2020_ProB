@@ -208,7 +208,7 @@ public:
 		std::unordered_map<Point,Point,MyHashFunction>& visited_p, Point& reach_p);
     int check_segment_profit(Point from, Point to, int NetId);
     TwoPinNet convert_path_to_twopin(Point source, Point sink, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
-    TwoPinNet convert_path_to_twopin_t2t(Point& source, Point sink, std::unordered_map<Point,Point,MyHashFunction>& visited_p,
+    TwoPinNet convert_path_to_twopin_t2t(Point& source, Point sink, Point b_min, std::unordered_map<Point,Point,MyHashFunction>& visited_p,
 		std::unordered_set<int>& source_comp_set, std::vector<std::vector<std::vector<int>>>& comp_grid_map);
 	void set_comp_grid_map(std::vector<std::vector<std::vector<int>>>& comp_grid_map, int netId, Point sink,
         std::unordered_map<Point, int, MyHashFunction>& component_map, Point box_min, Point box_max);

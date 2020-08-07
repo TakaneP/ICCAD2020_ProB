@@ -1282,37 +1282,35 @@ TwoPinNet RoutingGraph::convert_path_to_twopin(Point source, Point sink, unorder
     return two_pin_reverse(two_pin);
 }
 
-TwoPinNet RoutingGraph::convert_path_to_twopin_t2t(Point& source, Point sink, unordered_map<Point,Point,MyHashFunction>& visited_p,
+TwoPinNet RoutingGraph::convert_path_to_twopin_t2t(Point& source, Point sink, Point b_min, unordered_map<Point,Point,MyHashFunction>& visited_p,
     unordered_set<int>& source_comp_set, vector<vector<vector<int>>>& comp_grid_map) {
     Point tmp_node = sink;       
     int dir = 0; // 1: vertical, 2: horizontal, 3:via
     TwoPinNet two_pin;
     two_pin.n2.p = sink;
     two_pin.paths.push_back({sink,visited_p[sink]});
-    // build TwopinNet
-    /*while(true) {
-        if(tmp_node == source)
-            break;
-        tmp_node = visited_p[tmp_node];  
-    }*/
     while(true) {
         Point back_p = visited_p[tmp_node];
+        cout << "back_p: " << back_p << endl;
         int new_dir = 0;
         if(back_p.x != tmp_node.x) new_dir = 1;
         if(back_p.y != tmp_node.y) new_dir = 2;
         if(back_p.z != tmp_node.z) new_dir = 3;
+        int tmp_comp = comp_grid_map[tmp_node.x-b_min.x][tmp_node.y-b_min.y][tmp_node.z-b_min.z];
+        cout << "tmp: " << tmp_node << " " << tmp_comp << endl;
+        if(source_comp_set.find(tmp_comp) != source_comp_set.end()) {
+            // find source
+            cout << "Find\n";
+            source = tmp_node;
+            two_pin.n1.p = tmp_node;
+            two_pin.paths.back().second = source;
+            break;
+        }
         if(new_dir != dir) {
             two_pin.paths.back().second = tmp_node;
             if(tmp_node != sink)
                 two_pin.paths.push_back({tmp_node,back_p});
             dir = new_dir;
-        }
-        int tmp_comp = comp_grid_map[tmp_node.x][tmp_node.y][tmp_node.z];
-        if(source_comp_set.find(tmp_comp) != source_comp_set.end()) {
-            // find source
-            source = tmp_node;
-            two_pin.n1.p = tmp_node;
-            break;
         }
         tmp_node = back_p;
     }
@@ -1584,20 +1582,16 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>>& p_q, Point 
         auto frontier = p_q.top();
         p_q.pop();
         auto& f_point = frontier.first;
-        int tmp_comp = comp_grid_map[f_point.x][f_point.y][f_point.z];
+        Point local_p = f_point-Point(b_min.x,b_min.y,b_min.z);
+        int tmp_comp = comp_grid_map[local_p.x][local_p.y][local_p.z];
+        //cout << "f_point: " << f_point << " " << tmp_comp << endl;
         if(sink_comp_set.find(tmp_comp) != sink_comp_set.end()){
             // find sink
             reach_p = f_point;
-            sink_comp_set.erase(tmp_comp);
-            return 1;
-        }
-        Point local_p = f_point-Point(b_min.x,b_min.y,b_min.z);
+            return (nets[NetId].branch_nodes.find(reach_p) != nets[NetId].branch_nodes.end()) ? 1 : 2;
+        }         
         if(local_p.x<0 || local_p.y<0 || local_p.z<0 || f_point.x>b_max.x || f_point.y>b_max.y || f_point.z>b_max.z)
             continue;
-        if(comp_grid_map[local_p.x][local_p.y][local_p.z] > 0) {
-            reach_p = f_point;
-            return 2;
-        }
         // up
         if(f_point.z%2==1 && f_point.x < b_max.x) {
             Point new_p(f_point.x+1,f_point.y,f_point.z);
@@ -1738,10 +1732,15 @@ bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,
         if(b_min.z > b_max.z)  return 0;
         vector<vector<vector<int>>> comp_grid_map;
         set_all_comp_grid_map(comp_grid_map, net.netId, component_map, b_min, b_max);
+        cout << "first sink_comp_set: ";
+        for(auto& sink : sink_comp_set) 
+            cout << sink << " ";
+        cout << endl;
         int source_comp = component_map.begin()->second;
         priority_queue<pair<Point,int>> p_q;
-        while(!sink_comp_set.empty()) {
+        while(sink_comp_set.size() > 1) {
             add_component_in_pq(p_q, source_comp, component_map, net.netId, visited_p);
+            net.print_branch_nodes();
             source_comp_set.insert(source_comp);
             sink_comp_set.erase(source_comp);
             Point reach_p, source;
@@ -1761,29 +1760,37 @@ bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,
                 return 0;
             }
             // success one net
-            cout << "#T2T success once!, Net " << net.netId << "\n";
-            source_comp = comp_grid_map[reach_p.x][reach_p.y][reach_p.z];   
-            cout << "#find flg: " << find_flg << " reach_p: " << reach_p << endl;
-            TwoPinNet two_pin = convert_path_to_twopin_t2t(source, reach_p, visited_p, source_comp_set, comp_grid_map);
+            cout << "#T2T success once!, Net " << net.netId << "\n";       
+            source_comp = comp_grid_map[reach_p.x-b_min.x][reach_p.y-b_min.y][reach_p.z-b_min.z];   
+            cout << "#find flg: " << find_flg << " reach_p: " << reach_p << " comp " << source_comp << endl;
+            TwoPinNet two_pin = convert_path_to_twopin_t2t(source, reach_p, b_min, visited_p, source_comp_set, comp_grid_map);
+            if(source == reach_p) {
+                net.branch_nodes[reach_p].node.type = 1;
+                cout << "#same place\n";
+                continue;
+            }
+            cout << "2pin " << two_pin.n1.p << " " << two_pin.n2.p << endl;
+            for(auto& path : two_pin.paths) {
+                cout << "p: " << path.first << " -> " << path.second << endl;
+            }
             net_wirelength -= two_pin.wire_length;
             if(net_wirelength <= 0) {
                 // worse routing
                 return 0;
             }
             if(find_flg == 2) {
-                if(source == reach_p) {
-                    net.branch_nodes[reach_p].node.type = 1;
-                    cout << "#same place\n";
-                    continue;
-                }
                 if(net.branch_nodes.find(reach_p) == net.branch_nodes.end())
                     net.insert_steiner_point(reach_p);
             }
+            if(net.branch_nodes.find(source) == net.branch_nodes.end())
+                net.insert_steiner_point(source);
             // rebuild branch_nodes
             net.branch_nodes[source].neighbors.emplace_back(reach_p,two_pin);
             net.branch_nodes[reach_p].neighbors.emplace_back(source,two_pin_reverse(two_pin));
             // add two_pin demand into graph
             net.add_twopin_demand_into_graph(two_pin, grids);
+            for(auto& path : two_pin.paths)
+                add_path_comp_in_comp_grid(comp_grid_map, path, b_min, source_comp);       
             netK[net.netId]++;
         }
     }
@@ -1961,7 +1968,7 @@ void RoutingGraph::set_comp_grid_map(std::vector<std::vector<std::vector<int>>>&
                     continue;
                 // push path comp tag in grid
                 for(auto& path : neighbor.second.paths)
-                    add_path_comp_in_comp_grid(comp_grid_map, path, box_min, sink_comp);             
+                    add_path_comp_in_comp_grid(comp_grid_map, path, box_min, sink_comp);
                 sink_set.insert(comp.first);
             }
         }
@@ -1979,6 +1986,13 @@ void RoutingGraph::set_all_comp_grid_map(std::vector<std::vector<std::vector<int
     Net& net = nets[netId];
     unordered_set<Point, MyHashFunction> treversed;
     for(auto& comp : component_map) {
+        // handle node wi 
+        Point local_p = comp.first - box_min;
+        if(local_p.x<0 || local_p.y<0 || local_p.z<0) continue;
+        if(local_p.x >= comp_grid_map.size() || local_p.y >= comp_grid_map[0].size() || local_p.z >= comp_grid_map[0][0].size())
+            continue;
+        comp_grid_map[local_p.x][local_p.y][local_p.z] = comp.second;
+
         for(auto& neighbor : net.branch_nodes[comp.first].neighbors) {
             if(treversed.find(neighbor.first) != treversed.end())
                 continue;
@@ -2019,7 +2033,7 @@ void RoutingGraph::add_path_comp_in_pq(priority_queue<pair<Point,int>>& p_q, pai
         if(remain < 0)
             continue;
         p_q.emplace(p, gcell.demand+wire_length);
-        cout << "p_q add: " << p << endl;
+        //cout << "p_q add: " << p << endl;
         visited_p[p] = p;
     }
 }
