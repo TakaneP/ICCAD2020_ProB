@@ -940,13 +940,13 @@ void RoutingGraph::del_cell_point_net(int cellIndex, vector<pair<Point, int>>& p
             TreeNode& neighborTreeNode = net.branch_nodes[neighbor];
             // find neighbor branch node to p, then delete
             for(int k = neighborTreeNode.neighbors.size() - 1; k >= 0; --k) {
-                if(neighborTreeNode.neighbors.back().first == p) {
+                if(neighborTreeNode.neighbors[k].first == p) {
                     neighborTreeNode.neighbors.erase(neighborTreeNode.neighbors.begin()+k);
                     break;
                 }
             }
             if(neighborTreeNode.node.type == 0 && neighborTreeNode.neighbors.size() == 2) {
-                net.clear_steiner_point(neighbor, grids);                   
+                net.clear_steiner_point(neighbor, grids);
             }
             treeNode.neighbors.pop_back();   
         }
@@ -1664,15 +1664,15 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>>& p_q, Point 
         p_q.pop();
         auto& f_point = frontier.first;
         Point local_p = f_point-Point(b_min.x,b_min.y,b_min.z);
+        if(local_p.x<0 || local_p.y<0 || local_p.z<0 || f_point.x>b_max.x || f_point.y>b_max.y || f_point.z>b_max.z)
+            continue;
         int tmp_comp = comp_grid_map[local_p.x][local_p.y][local_p.z];
         //cout << "f_point: " << f_point << " " << tmp_comp << endl;
         if(sink_comp_set.find(tmp_comp) != sink_comp_set.end()){
             // find sink
             reach_p = f_point;
             return (nets[NetId].branch_nodes.find(reach_p) != nets[NetId].branch_nodes.end()) ? 1 : 2;
-        }         
-        if(local_p.x<0 || local_p.y<0 || local_p.z<0 || f_point.x>b_max.x || f_point.y>b_max.y || f_point.z>b_max.z)
-            continue;
+        }
         // up
         if(f_point.z%2==1 && f_point.x < b_max.x) {
             Point new_p(f_point.x+1,f_point.y,f_point.z);
@@ -1793,7 +1793,6 @@ void RoutingGraph::add_component_in_pq(priority_queue<pair<Point,int>>& p_q, int
 
 bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,int,Node,TwoPinNet>> >& open_nets, int& net_wirelength, 
     unordered_map<int, int>& netK, vector<pair<Point, int>>& point_nets) {
-    unordered_set<int> source_comp_set, sink_comp_set; 
     for(auto& net_open_net : open_nets) {
         auto& net = nets[net_open_net.first];
         cout << "net " << net.netId << endl;
@@ -1803,7 +1802,7 @@ bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,
         unordered_map<Point, int, MyHashFunction> component_map;
         cout << "b set\n";
         net.set_point_component(component_map);
-        unordered_set<int> sink_comp_set; 
+        unordered_set<int> source_comp_set, sink_comp_set; 
         // set sink_comp_set
         for(auto& comp : component_map)
             sink_comp_set.insert(comp.second);
@@ -1822,7 +1821,6 @@ bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,
         priority_queue<pair<Point,int>> p_q;
         while(sink_comp_set.size() > 1) {
             add_component_in_pq(p_q, source_comp, component_map, net.netId, visited_p);
-            net.print_branch_nodes();
             source_comp_set.insert(source_comp);
             sink_comp_set.erase(source_comp);
             Point reach_p, source;
