@@ -1217,8 +1217,8 @@ void RoutingGraph::wirelength_driven_move() {
             }
             //cout << i << " " << cellNets.size() << " " << cells_pos.size() << "\n";
             cellGains[i] += (accLength - cellNets[i]); //smaller better
-            cellGains[i] -= (double)placement[cell.x][cell.y].size();
-            cellGains[i] -= cells_pos[0].second;
+            //cellGains[i] -= (double)placement[cell.x][cell.y].size();
+            //cellGains[i] -= cells_pos[0].second;
         }
     }
 
@@ -1226,7 +1226,7 @@ void RoutingGraph::wirelength_driven_move() {
         cout << i << " : " << cellGains[i] << endl;
         bucket[cellGains[i]].insert(i);
     }
-
+    int count = 0;
     while(!bucket.empty()) {
         if(this->movedCell.size() >= maxCellMove) return;
         unordered_set<int>& candidateList = bucket.begin()->second;
@@ -1240,6 +1240,8 @@ void RoutingGraph::wirelength_driven_move() {
         if(candidateList.empty())
             bucket.erase(bucket.begin());
         bool success = move_cell_into_optimal_region(candidate);
+        if(success) count++;
+        //if(count > maxCellMove/30) return;
     }
     /*for(int i = order.size()-1; i >= 0; i--) {
         if(this->movedCell.size() >= maxCellMove) return;
