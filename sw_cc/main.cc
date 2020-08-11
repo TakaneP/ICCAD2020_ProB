@@ -36,6 +36,12 @@ int main(int argc, char* argv[])
         //if((int)(routingGraph->movedCell.size() - prevSize) <= 0) break;
         //else prevSize = routingGraph->movedCell.size();
     //}
+
+    cout << "##b demand: " << routingGraph->grids[93][58][5].demand << endl;
+    for(auto& net : routingGraph->grids[93][58][5].passingNets) {
+        cout << "net: " << net.first << " " << net.second << endl;
+    }
+
     if(argc == 3) {
         string outputFile = argv[2];
         output_file(routingGraph, outputFile);

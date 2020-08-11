@@ -769,6 +769,7 @@ void RoutingGraph::add_cell(int x, int y, int cellIndex) {
                 if(node.type == 0) node.type = 1;
                 else if(node.type == 1 && node.mergedLocalPins.size() > 1) node.type = 2;
                 if(pin.pseudo) {
+                    cout << "pseudo pin " << i << endl;
                     int actualLayer = pin.actualPinLayer;
                     for(int j = actualLayer; j <= pin.layer; ++j)
                         net.add_net_demand_into_graph(x, y, j, grids);
@@ -930,8 +931,8 @@ void RoutingGraph::del_cell_point_net(int cellIndex, vector<pair<Point, int>>& p
         Point p = p_net.first;
         int netIndex = p_net.second;
         Net& net = nets[netIndex];
-        cout << "\n#print seg\n";
-        net.print_branch_nodes();
+        //cout << "\n#print seg\n";
+        //net.print_branch_nodes();
         if(net.branch_nodes.find(p) != net.branch_nodes.end() && net.branch_nodes[p].neighbors.size()>0) {
             TreeNode& treeNode = net.branch_nodes[p];
             pair<Point, TwoPinNet>& lastElement = treeNode.neighbors.back();
@@ -1060,7 +1061,6 @@ void Net::del_seg_demand(std::pair<Point,Point> segment, vector<vector<vector<Gc
         swap(startColumn, endColumn);
     if(startLayer > endLayer)
         swap(startLayer, endLayer);
-    cout << "seg: " << segment.first << " " << segment.second << endl;
     // handle vertical segment
     if(startRow != endRow) {
         for(int j = startRow; j <= endRow; j++) {
@@ -1084,6 +1084,8 @@ void Net::del_seg_demand(std::pair<Point,Point> segment, vector<vector<vector<Gc
 void Net::del_seg_demand_from_graph(int x, int y, int z, vector<vector<vector<Gcell>>>& grids) {
     if(--grids[x][y][z].passingNets[netId] == 0)
         grids[x][y][z].demand--;
+    if(grids[x][y][z].demand<0)
+        cout << "\nFuck\n\n";
 }
 
 void Net::del_twoPinNet_from_graph(TwoPinNet& twoPinNet, vector<vector<vector<Gcell>>>& grids) {
@@ -1135,6 +1137,7 @@ bool sortbysec(const pair<Point,int> &a, const pair<Point,int> &b)
 
 void RoutingGraph::move_cells_force() {
     for(int cell_idx = 0; cell_idx < cellInstances.size(); cell_idx++) {
+        if(cell_idx > 22733) return;
         if(this->movedCell.size() >= maxCellMove) return;
         move_cell_into_optimal_region(cell_idx);
     }
@@ -1244,6 +1247,7 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
     cout << "\n#cell " << cell_idx << endl;
     Cell& cell = cellInstances[cell_idx];
     if(!cell.movable) return 0;
+    cout << "##b demand: " << grids[93][58][5].demand << endl;
     int cell_ori_x = cell.x, cell_ori_y = cell.y;
     vector<pair<Point,int>> cells_pos;
     bool opt_flag = find_optimal_pos(cell, cells_pos);
@@ -1295,6 +1299,7 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
     // test reroute
     vector<pair<Point, int>> point_nets;
     bool routing_success = connect_all_nets(open_nets, net_wirelength, netK, point_nets);
+    cout << "## demand: " << grids[93][58][5].demand << endl;
     if(routing_success) {
         movedCell.insert(cell_idx);
         return 1;
@@ -1305,7 +1310,6 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
         // reverse original net
         //del_cell_last_k_neighbor(cell_idx, netK);
         del_cell_point_net(cell_idx, point_nets);
-        cout << "a del\n";
         if(cell_ori_x == cell.originalX && cell_ori_y == cell.originalY)
             movedCell.erase(cell_idx);
         add_cell(cell_ori_x,cell_ori_y,cell_idx);
@@ -1372,16 +1376,16 @@ TwoPinNet RoutingGraph::convert_path_to_twopin_t2t(Point& source, Point sink, Po
     two_pin.paths.push_back({sink,visited_p[sink]});
     while(true) {
         Point back_p = visited_p[tmp_node];
-        cout << "back_p: " << back_p << endl;
+        //cout << "back_p: " << back_p << endl;
         int new_dir = 0;
         if(back_p.x != tmp_node.x) new_dir = 1;
         if(back_p.y != tmp_node.y) new_dir = 2;
         if(back_p.z != tmp_node.z) new_dir = 3;
         int tmp_comp = comp_grid_map[tmp_node.x-b_min.x][tmp_node.y-b_min.y][tmp_node.z-b_min.z];
-        cout << "tmp: " << tmp_node << " " << tmp_comp << endl;
+        //cout << "tmp: " << tmp_node << " " << tmp_comp << endl;
         if(source_comp_set.find(tmp_comp) != source_comp_set.end()) {
             // find source
-            cout << "Find\n";
+            //cout << "Find\n";
             source = tmp_node;
             two_pin.n1.p = tmp_node;
             two_pin.paths.back().second = source;
@@ -1797,26 +1801,24 @@ bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,
         auto& net = nets[net_open_net.first];
         cout << "net " << net.netId << endl;
         // tmp debug
-        if(net.minRoutingLayer > 0) return 0;
+        //if(net.minRoutingLayer > 0) return 0;
         unordered_map<Point,Point,MyHashFunction> visited_p;
         unordered_map<Point, int, MyHashFunction> component_map;
-        cout << "b set\n";
         net.set_point_component(component_map);
         unordered_set<int> source_comp_set, sink_comp_set; 
         // set sink_comp_set
         for(auto& comp : component_map)
             sink_comp_set.insert(comp.second);
         Point b_min(INT32_MAX, INT32_MAX, INT32_MAX), b_max(0,0,0);
-        cout << "b bbox\n";
         net.calc_bounding_box(b_min, b_max, this->layer);
         cout << "b_box " << b_min << " " << b_max << endl;
         if(b_min.z > b_max.z)  return 0;
         vector<vector<vector<int>>> comp_grid_map;
         set_all_comp_grid_map(comp_grid_map, net.netId, component_map, b_min, b_max);
-        cout << "first sink_comp_set: ";
+        /*cout << "first sink_comp_set: ";
         for(auto& sink : sink_comp_set) 
             cout << sink << " ";
-        cout << endl;
+        cout << endl;*/
         int source_comp = component_map.begin()->second;
         priority_queue<pair<Point,int>> p_q;
         while(sink_comp_set.size() > 1) {
@@ -1824,15 +1826,14 @@ bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,
             source_comp_set.insert(source_comp);
             sink_comp_set.erase(source_comp);
             Point reach_p, source;
-            cout << "source_comp_set: ";
+            /*cout << "source_comp_set: ";
             for(auto& source : source_comp_set) 
                 cout << source << " ";
             cout << endl;
             cout << "sink_comp_set: ";
             for(auto& sink : sink_comp_set) 
                 cout << sink << " ";
-            cout << endl;
-            cout << "B T2T\n";
+            cout << endl;*/
             int find_flg = tree2tree_routing(p_q, b_min, b_max, source_comp_set, sink_comp_set, comp_grid_map, net.netId, visited_p, reach_p);         
             if(find_flg == 0) {
                 cout << "#T2T fail\n";
