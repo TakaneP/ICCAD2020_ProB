@@ -565,7 +565,7 @@ void Net::clear_steiner_point(Point p, vector<vector<vector<Gcell>>>& grids) {
     branch_nodes.erase(p);
 }
 
-bool Net::insert_steiner_point(Point p) {
+bool Net::insert_steiner_point(Point p, vector<vector<vector<Gcell>>>& grids) {
     unordered_set<Point, MyHashFunction> used_points;
     for(auto& branch_node : this->branch_nodes) {
         used_points.insert(branch_node.first);
@@ -589,6 +589,8 @@ bool Net::insert_steiner_point(Point p) {
                     if(p != path.first && p != path.second) {               
                         path.second = p;
                         ori_paths.insert(ori_paths.begin()+path_idx+1, {p, tmp_second});
+                        // add passing net at steiner point grid
+                        grids[p.x][p.y][p.z].passingNets[netId]++;
                     }
                     vector<pair<Point,Point>> new_paths(ori_paths.begin()+path_idx+1, ori_paths.end());
                     ori_paths.erase(ori_paths.begin()+path_idx+1, ori_paths.end());
@@ -760,7 +762,7 @@ void RoutingGraph::add_cell(int x, int y, int cellIndex) {
             if(netIndex != -1) {
                 Net& net = nets[netIndex];
                 if(net.branch_nodes.find(Point(x, y, pin.layer)) == net.branch_nodes.end()) {
-                    net.insert_steiner_point(Point(x, y, pin.layer));
+                    net.insert_steiner_point(Point(x, y, pin.layer), grids);
                 }
                 TreeNode& treeNode = net.branch_nodes[Point(x, y, pin.layer)];
                 Node& node = treeNode.node;
@@ -1137,7 +1139,6 @@ bool sortbysec(const pair<Point,int> &a, const pair<Point,int> &b)
 
 void RoutingGraph::move_cells_force() {
     for(int cell_idx = 0; cell_idx < cellInstances.size(); cell_idx++) {
-        if(cell_idx > 22733) return;
         if(this->movedCell.size() >= maxCellMove) return;
         move_cell_into_optimal_region(cell_idx);
     }
@@ -1247,7 +1248,6 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
     cout << "\n#cell " << cell_idx << endl;
     Cell& cell = cellInstances[cell_idx];
     if(!cell.movable) return 0;
-    cout << "##b demand: " << grids[93][58][5].demand << endl;
     int cell_ori_x = cell.x, cell_ori_y = cell.y;
     vector<pair<Point,int>> cells_pos;
     bool opt_flag = find_optimal_pos(cell, cells_pos);
@@ -1299,7 +1299,6 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
     // test reroute
     vector<pair<Point, int>> point_nets;
     bool routing_success = connect_all_nets(open_nets, net_wirelength, netK, point_nets);
-    cout << "## demand: " << grids[93][58][5].demand << endl;
     if(routing_success) {
         movedCell.insert(cell_idx);
         return 1;
@@ -1861,10 +1860,10 @@ bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,
             }
             if(find_flg == 2) {
                 if(net.branch_nodes.find(reach_p) == net.branch_nodes.end())
-                    net.insert_steiner_point(reach_p);
+                    net.insert_steiner_point(reach_p, grids);
             }
             if(net.branch_nodes.find(source) == net.branch_nodes.end())
-                net.insert_steiner_point(source);
+                net.insert_steiner_point(source, grids);
             point_nets.emplace_back(reach_p, net.netId);
             // rebuild branch_nodes
             net.branch_nodes[source].neighbors.emplace_back(reach_p,two_pin);

@@ -148,7 +148,7 @@ struct Net{
     void del_twoPinNet_from_graph(TwoPinNet& twoPinNet, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void add_net_demand_into_graph(int x, int y, int z, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void add_twopin_demand_into_graph(TwoPinNet& twoPinNet, std::vector<std::vector<std::vector<Gcell>>>& grids);
-    bool insert_steiner_point(Point p);
+    bool insert_steiner_point(Point p, std::vector<std::vector<std::vector<Gcell>>>& grids);
     void set_point_component(std::unordered_map<Point, int, MyHashFunction>& component_map);
     void calc_bounding_box(Point& min, Point& max, int max_layer);
 };
