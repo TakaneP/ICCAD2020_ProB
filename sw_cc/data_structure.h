@@ -185,6 +185,7 @@ public:
     void del_cell_demand_from_graph(int x, int y, int MCtype);
     void del_cell_neighbor(int cellIndex);
     void del_cell_last_k_neighbor(int cellIndex, std::unordered_map<int, int>& netK); //key: netId, value: delete last k neighbors for that net
+    void del_cell_point_net(int cellIndex, std::vector<std::pair<Point, int>>& point_nets);
     void construct_2pin_nets();
     void move_cells_force();
     void wirelength_driven_move();
@@ -198,7 +199,7 @@ public:
     void add_component_in_pq(std::priority_queue<std::pair<Point,int>>& p_q, int source_comp, 
         std::unordered_map<Point, int, MyHashFunction>& component_map, int netId, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
     bool connect_all_nets(std::unordered_map<int, std::vector<std::tuple<Point,Point,int,Node,TwoPinNet>> >& open_nets, int& net_wirelength, 
-        std::unordered_map<int, int>& netK);
+        std::unordered_map<int, int>& netK, std::vector<std::pair<Point, int>>& point_nets);
     bool A_star_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
     // return, 0: not find, 1 reach sink, 2 reach tree branch
     int A_star_pin2component_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p,
