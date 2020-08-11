@@ -196,7 +196,7 @@ public:
     // return cell profit after put in cell
     int check_cell_cost_in_graph(int x, int y, Cell& cell);
     int Z_shape_routing(Point source, Point sink, int NetId);
-    void add_component_in_pq(std::priority_queue<std::pair<Point,int>>& p_q, int source_comp, 
+    void add_component_in_pq(std::priority_queue<std::pair<Point,int>, std::vector<std::pair<Point,int>>, std::greater<std::pair<Point,int>>>& p_q, int source_comp, 
         std::unordered_map<Point, int, MyHashFunction>& component_map, int netId, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
     bool connect_all_nets(std::unordered_map<int, std::vector<std::tuple<Point,Point,int,Node,TwoPinNet>> >& open_nets, int& net_wirelength, 
         std::unordered_map<int, int>& netK, std::vector<std::pair<Point, int>>& point_nets);
@@ -204,7 +204,7 @@ public:
     // return, 0: not find, 1 reach sink, 2 reach tree branch
     int A_star_pin2component_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p,
         std::unordered_map<Point, int, MyHashFunction>& component_map, Point& reach_p);
-    int tree2tree_routing(std::priority_queue<std::pair<Point,int>>& p_q, Point b_min, Point b_max, std::unordered_set<int>& source_comp_set,
+    int tree2tree_routing(std::priority_queue<std::pair<Point,int>, std::vector<std::pair<Point,int>>, std::greater<std::pair<Point,int>>>& p_q, Point b_min, Point b_max, std::unordered_set<int>& source_comp_set,
 		std::unordered_set<int>& sink_comp_set, std::vector<std::vector<std::vector<int>>>& comp_grid_map, int NetId, 
 		std::unordered_map<Point,Point,MyHashFunction>& visited_p, Point& reach_p);
     int check_segment_profit(Point from, Point to, int NetId);
@@ -215,7 +215,7 @@ public:
         std::unordered_map<Point, int, MyHashFunction>& component_map, Point box_min, Point box_max);
     void set_all_comp_grid_map(std::vector<std::vector<std::vector<int>>>& comp_grid_map, int netId,
         std::unordered_map<Point, int, MyHashFunction>& component_map, Point box_min, Point box_max);
-    void add_path_comp_in_pq(std::priority_queue<std::pair<Point,int>>& p_q, std::pair<Point, Point> path, int netId,
+    void add_path_comp_in_pq(std::priority_queue<std::pair<Point,int>, std::vector<std::pair<Point,int>>, std::greater<std::pair<Point,int>>>& p_q, std::pair<Point, Point> path, int netId,
         std::unordered_map<Point,Point,MyHashFunction>& visited_p);
     void add_path_comp_in_comp_grid(std::vector<std::vector<std::vector<int>>>& comp_grid_map, 
         std::pair<Point, Point> path, Point box_min, int sink_comp);
