@@ -101,7 +101,7 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
 }
 
 void Net::update_wirelength() {
-    unordered_set<Point> visited;
+    unordered_set<Point, MyHashFunction> visited;
     wire_length = 0;
     for(auto& node : branch_nodes) {
         for(auto& neighbor : node.second.neighbors) {
