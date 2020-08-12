@@ -10,7 +10,7 @@ FLUTE_OBJ     = $(FLUTE_SRC:.c=.o)
 
 all: $(EXE)
 
-$(EXE): $(OBJ_DIR)/main.o $(OBJ_DIR)/parser.o $(OBJ_DIR)/data_structure.o $(OBJ_DIR)/segment_tree.o $(OBJ_DIR)/output.o $(FLUTE_OBJ) 
+$(EXE): $(OBJ_DIR)/main.o $(OBJ_DIR)/parser.o $(OBJ_DIR)/data_structure.o $(OBJ_DIR)/segment_tree.o $(OBJ_DIR)/RSMT.o $(OBJ_DIR)/output.o $(FLUTE_OBJ)
 	$(CXX) $^ $(CFLAGS) -o $@ 
 	
 $(OBJ_DIR)/main.o: main.cc parser.h data_structure.h segment_tree.h output.h | obj_dir
@@ -19,6 +19,9 @@ $(OBJ_DIR)/main.o: main.cc parser.h data_structure.h segment_tree.h output.h | o
 $(OBJ_DIR)/parser.o: parser.cc data_structure.h parser.h segment_tree.h | obj_dir
 	$(CXX) $(CFLAGS) -c $< -o $@
 	
+$(OBJ_DIR)/RSMT.o: RSMT.cc data_structure.h RSMT.h | obj_dir
+	$(CXX) $(CFLAGS) -c $< -o $@
+
 $(OBJ_DIR)/data_structure.o: data_structure.cc data_structure.h | obj_dir
 	$(CXX) $(CFLAGS) -c $< -o $@
 
