@@ -409,6 +409,7 @@ void Net::remove_branch_cycle(vector<vector<vector<Gcell>>>& grids) {
     std::priority_queue<TwoPinNet, vector<TwoPinNet>, greater<TwoPinNet>> frontier_edges;
     std::queue<TwoPinNet> skip_edges;
     std::unordered_set <Point,MyHashFunction> visited_nodes;
+    unordered_set<Point, MyHashFunction> candidateSteiner;
     push_edge_in_queue(frontier_edges);
     // construct MST
     while(!frontier_edges.empty()) {
@@ -448,6 +449,7 @@ void Net::remove_branch_cycle(vector<vector<vector<Gcell>>>& grids) {
                 if(e1_treeNode.neighbors[n].first == edge.n2.p && wire_len == e1_treeNode.neighbors[n].second.wire_length) {
                     del_twoPinNet_from_graph((e1_treeNode.neighbors.begin()+n)->second, grids); 
                     e1_treeNode.neighbors.erase(e1_treeNode.neighbors.begin()+n);
+                    candidateSteiner.insert(edge.n1.p);
                     break;
                 }
             }
@@ -455,6 +457,7 @@ void Net::remove_branch_cycle(vector<vector<vector<Gcell>>>& grids) {
                 e2_treeNode.neighbors[n].second.update_wire_length();
                 if(e2_treeNode.neighbors[n].first == edge.n1.p && wire_len == e2_treeNode.neighbors[n].second.wire_length) {
                     e2_treeNode.neighbors.erase(e2_treeNode.neighbors.begin()+n);
+                    candidateSteiner.insert(edge.n2.p);
                     break;
                 }
             }
@@ -462,6 +465,12 @@ void Net::remove_branch_cycle(vector<vector<vector<Gcell>>>& grids) {
         } else {
             skip_edges.push(edge);
         }
+    }
+    for(auto& p : candidateSteiner) {
+        auto pos = branch_nodes.find(p);
+        if(pos == branch_nodes.end()) continue;
+        TreeNode& treeNode = pos->second;
+        if(treeNode.node.type == 0 && treeNode.neighbors.size() == 2) clear_steiner_point(p, grids);
     }
 }
 
@@ -907,7 +916,6 @@ void RoutingGraph::del_cell_last_k_neighbor(int cellIndex, unordered_map<int, in
                 treeNode.neighbors.pop_back();             
             }
             netK.erase(pos);
-
             if(treeNode.node.mergedLocalPins.size() >= 1)
                 continue;
 
@@ -981,7 +989,6 @@ void Net::del_seg_demand(std::pair<Point,Point> segment, vector<vector<vector<Gc
         swap(startColumn, endColumn);
     if(startLayer > endLayer)
         swap(startLayer, endLayer);
-
     // handle vertical segment
     if(startRow != endRow) {
         for(int j = startRow; j <= endRow; j++) {
@@ -1057,6 +1064,7 @@ bool sortbysec(const pair<Point,int> &a, const pair<Point,int> &b)
 void RoutingGraph::move_cells_force() {
     for(int cell_idx = 0; cell_idx < cellInstances.size(); cell_idx++) {
         if(this->movedCell.size() >= maxCellMove) return;
+        //if(cell_idx > 104727) return;
         move_cell_into_optimal_region(cell_idx);
     }
 }
@@ -1153,11 +1161,6 @@ void RoutingGraph::wirelength_driven_move() {
             bucket.erase(bucket.begin());
         bool success = move_cell_into_optimal_region(candidate);
     }
-    /*for(int i = order.size()-1; i >= 0; i--) {
-        if(this->movedCell.size() >= maxCellMove) return;
-        int cellIndex = order[i].second;
-        bool success = move_cell_into_optimal_region(cellIndex);
-    }*/
 }
 
 bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
@@ -1175,9 +1178,11 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
     // source, sink, netId, source.node, twopin
     vector<tuple<Point,Point,int,Node,TwoPinNet>> open_nets;
     // key is netId, value is branch_node
-    map<int,unordered_map<Point, TreeNode, MyHashFunction>> branchs_copy;
+    unordered_map<int,unordered_map<Point, TreeNode, MyHashFunction>> branchs_copy;
     unordered_set<int> updated_branchs;
+    unordered_map<int, map<tuple<int, int, int, int, int, int>, bool>> alreadyInOpenNets;
     int net_wirelength = 0;
+    //cout << "Cell: " << cell_idx << endl;
     for(auto& pin : cell.pins) {
         if(pin.connectedNet == -1)
             continue;
@@ -1196,13 +1201,17 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
             }
             if(net.branch_nodes[neighbor_p].node.mergedLocalPins.size() >= 2)
                 used_local_node.insert(neighbor_p);
+            if(alreadyInOpenNets[net.netId][{to_p.x,to_p.y,pin.layer,neighbor_p.x, neighbor_p.y, neighbor_p.z}] == true) continue;
             neighbor.second.update_wire_length();
             net_wirelength += neighbor.second.wire_length;
             open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), neighbor_p, net.netId, net.branch_nodes[cell_p].node, neighbor.second);
+            alreadyInOpenNets[net.netId][{to_p.x,to_p.y,pin.layer,neighbor_p.x, neighbor_p.y, neighbor_p.z}] = true;
         }        
-        if(net.branch_nodes[cell_p].node.type == 2 && net.branch_nodes[cell_p].neighbors.empty()) {
+        if(net.branch_nodes[cell_p].node.type == 2 && net.branch_nodes[cell_p].neighbors.empty()
+        && alreadyInOpenNets[net.netId][{to_p.x,to_p.y,pin.layer,cell_ori_x, cell_ori_y, pin.layer}] == false) {
             net_wirelength++;
             open_nets.emplace_back(Point(to_p.x,to_p.y,pin.layer), Point(cell_ori_x,cell_ori_y,pin.layer), net.netId, Node(), TwoPinNet());
+            alreadyInOpenNets[net.netId][{to_p.x,to_p.y,pin.layer,cell_ori_x, cell_ori_y, pin.layer}] = true;
         }
     }
     // delete cell neighbor two-pin
@@ -1213,21 +1222,33 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
     for(auto& open_net : open_nets) {
         auto& net = nets[get<2>(open_net)];
         unordered_map<Point,Point,MyHashFunction> visited_p;
-        unordered_map<Point, int, MyHashFunction> component_map;
-	    net.set_point_component(component_map);
+        //unordered_map<Point, int, MyHashFunction> component_map;
+	    //net.set_point_component(component_map);
         Point source = get<0>(open_net), sink = get<1>(open_net), reach_p;
         if(source == sink) continue;
-        int find_flg = A_star_pin2component_routing(source, sink, get<2>(open_net), visited_p, component_map, reach_p);
+        auto pos1 = net.branch_nodes.find(source);
+        int isNeighbor = -1;
+        if(pos1 != net.branch_nodes.end()) {
+            TreeNode& sourceTreeNode = pos1->second;
+            for(int i = 0; i < sourceTreeNode.neighbors.size(); ++i) {
+                if(sourceTreeNode.neighbors[i].first == sink) {
+                    isNeighbor = i;
+                    break;
+                }
+            }
+        }
+        if(isNeighbor != -1) continue;
+        int find_flg = A_star_routing(source, sink, get<2>(open_net), visited_p);
         if(find_flg == 0) {
-            cout << "#A star fail\n";
+            //cout << "#A star fail\n";
             // reverse
             routing_success = 0;
             break;
         }
         // success one net
-        cout << "#A star seccess , Net " << get<2>(open_net) << "\n";      
-        cout << "#find flg: " << find_flg << " reach_p: " << reach_p << " from " << source << endl;
-        sink = reach_p; 
+        //cout << "#A star seccess , Net " << get<2>(open_net) << "\n";
+        //cout << "#find flg: " << find_flg << " reach_p: " << reach_p << " from " << source << endl;
+        //sink = reach_p;
         TwoPinNet two_pin = convert_path_to_twopin(source, sink, visited_p);
         two_pin.update_wire_length();
         net_wirelength -= two_pin.wire_length;
@@ -1240,9 +1261,9 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
 		    if(source == reach_p) {
 			    //net.branch_nodes[reach_p].node.type = 1;
 			    // tmp
-                cout << "#Tmp error\n";
+                //cout << "#Tmp error\n";
 	            routing_success = 0;
-			    break;
+                break;
 		    }
 		    else {
                 if(net.branch_nodes.find(reach_p) == net.branch_nodes.end()) {
@@ -1262,7 +1283,6 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
         return 1;
     }
     else {
-        cout << "#del cell (" << cell.x << "," << cell.y << ")\n";
         // reverse original net
         del_cell_last_k_neighbor(cell_idx, netK);
         if(cell_ori_x == cell.originalX && cell_ori_y == cell.originalY)
@@ -1280,9 +1300,9 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
                 continue;
             // add two_pin demand into graph
             net.add_twopin_demand_into_graph(get<4>(open_net), grids);
-            cout << "#after reverse " << get<2>(open_net) << " from " << p1 << " to " << get<1>(open_net) << "\n";
+            //cout << "#after reverse " << get<2>(open_net) << " from " << p1 << " to " << get<1>(open_net) << "\n";
         }
-        cout << "#after end\n";
+        //cout << "#after end\n";
         return 0;
     }
 }
@@ -1290,6 +1310,7 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx) {
 TwoPinNet RoutingGraph::convert_path_to_twopin(Point source, Point sink, unordered_map<Point,Point,MyHashFunction>& visited_p) {
     Point tmp_node = sink;       
     int dir = 0; // 1: vertical, 2: horizontal, 3:via
+
     TwoPinNet two_pin;
     two_pin.n1.p = source;
     two_pin.n2.p = sink;
@@ -1826,4 +1847,194 @@ void TwoPinNet::update_wire_length() {
 int RoutingGraph::get_edge_cost(Point& from, Point& to) {
     int alpha = 1, beta = 1;
     return alpha*max(grids[from.x][from.y][from.z].demand, grids[to.x][to.y][to.z].demand) + beta*1;
+}
+
+void RoutingGraph::swap_into_optimal_region(void) {
+    vector<vector<pair<Point, int>>> cells_pos(cellInstances.size());
+    for(int cellIdx = 0; cellIdx < cellInstances.size(); cellIdx++) {
+        Cell& cell = cellInstances[cellIdx];
+        find_optimal_pos(cell, cells_pos[cellIdx]);
+    }
+    for(int cellIdx = 0; cellIdx < cellInstances.size(); cellIdx++) {
+        Cell& cell = cellInstances[cellIdx];
+        vector<pair<Point,int>>& cell_pos = cells_pos[cellIdx];
+        if(cell_pos.empty()) continue;
+        for(auto it = cell_pos.begin(); it != cell_pos.end(); ++it) {
+            Point& opt = it->first;
+            unordered_set<int>& cellsInTheRegion = placement[opt.x][opt.y];
+            for(int _cellIdx : cellsInTheRegion) {
+                vector<pair<Point,int>>& candidateCellPos = cells_pos[_cellIdx];
+                for(auto _it = candidateCellPos.begin(); _it != candidateCellPos.end(); ++_it) {
+                    Point& candidateOpt = _it->first;
+                    if(candidateOpt.x == cell.x && candidateOpt.y == cell.y)
+                        cout << "Cell " << cellIdx << " and Cell " << _cellIdx << " can swap\n";
+                }
+            }
+        }
+    }
+}
+
+bool RoutingGraph::swap_two_cells(int cell_idx1, int cell_idx2) {
+    //cellIdx -> netId -> number to delete
+    unordered_map<int, unordered_map<int, int>> netK;
+    Cell& cell1 = cellInstances[cell_idx1];
+    Cell& cell2 = cellInstances[cell_idx2];
+    if(cell1.x == cell2.x && cell1.y == cell2.y) return 1;
+    for(auto& pin : cell1.pins) {
+        if(pin.connectedNet == -1) continue;
+        Net& net = nets[pin.connectedNet];
+        Point p(cell1.x, cell1.y, pin.layer);
+        TreeNode& treeNode = net.branch_nodes[p];
+        for(auto it = treeNode.neighbors.begin(); it != treeNode.neighbors.end(); ++it) {
+            Point& neighbor = it->first;
+            if(neighbor.x == cell2.x && neighbor.y == cell2.y) return 0;
+        }
+    }
+    int cell1OriX = cell1.x, cell1OriY = cell1.y, cell2OriX = cell2.x, cell2OriY = cell2.y;
+    // source, sink, netId, source.node, twopin, cell_idx
+    vector<tuple<Point,Point,int,Node,TwoPinNet, int>> open_nets;
+    // key is netId, value is branch_node
+    unordered_map<int,unordered_map<Point, TreeNode, MyHashFunction>> branchs_copy;
+    unordered_set<int> updated_branchs;
+    unordered_map<int, map<tuple<int, int, int, int, int, int>, bool>> alreadyInOpenNets;
+    int net_wirelength = 0;
+    //cout << "Cell: " << cell_idx << endl;
+    for(auto& pin : cell1.pins) {
+        if(pin.connectedNet == -1)
+            continue;
+        auto& net = nets[pin.connectedNet];
+        // copy branch_node for reverse
+        if(branchs_copy.find(pin.connectedNet) == branchs_copy.end())
+            branchs_copy[pin.connectedNet] = net.branch_nodes;
+        Point cell_p(cell1.x, cell1.y, pin.layer);
+        unordered_set<Point, MyHashFunction> used_local_node;
+        for(auto& neighbor : net.branch_nodes[cell_p].neighbors) {
+            Point neighbor_p = neighbor.first;
+            // local pin can not put in open net twice
+            if(used_local_node.find(neighbor_p) != used_local_node.end()) {
+                cout << "skip\n";
+                continue;
+            }
+            if(net.branch_nodes[neighbor_p].node.mergedLocalPins.size() >= 2)
+                used_local_node.insert(neighbor_p);
+            if(alreadyInOpenNets[net.netId][{cell2.x,cell2.y,pin.layer,neighbor_p.x, neighbor_p.y, neighbor_p.z}] == true) continue;
+            neighbor.second.update_wire_length();
+            net_wirelength += neighbor.second.wire_length;
+            open_nets.emplace_back(Point(cell2.x,cell2.y,pin.layer), neighbor_p, net.netId, net.branch_nodes[cell_p].node, neighbor.second, cell_idx1);
+            alreadyInOpenNets[net.netId][{cell2.x,cell2.y,pin.layer,neighbor_p.x, neighbor_p.y, neighbor_p.z}] = true;
+        }
+        if(net.branch_nodes[cell_p].node.type == 2 && net.branch_nodes[cell_p].neighbors.empty()
+        && alreadyInOpenNets[net.netId][{cell2.x,cell2.y,pin.layer,cell1OriX, cell1OriY, pin.layer}] == false) {
+            net_wirelength++;
+            open_nets.emplace_back(Point(cell2.x,cell2.y,pin.layer), Point(cell1OriX,cell1OriY,pin.layer), net.netId, Node(), TwoPinNet(), cell_idx1);
+            alreadyInOpenNets[net.netId][{cell2.x,cell2.y,pin.layer,cell1OriX, cell1OriY, pin.layer}] = true;
+        }
+    }
+    for(auto& pin : cell2.pins) {
+        if(pin.connectedNet == -1) continue;
+        Net& net = nets[pin.connectedNet];
+        if(branchs_copy.find(pin.connectedNet) == branchs_copy.end()) branchs_copy[pin.connectedNet] = net.branch_nodes;
+        Point cell_p(cell2.x, cell2.y, pin.layer);
+        unordered_set<Point, MyHashFunction> used_local_node;
+        for(auto& neighbor : net.branch_nodes[cell_p].neighbors) {
+            Point neighbor_p = neighbor.first;
+            if(used_local_node.find(neighbor_p) != used_local_node.end()) {
+                cout << "skip\n";
+                continue;
+            }
+            if(net.branch_nodes[neighbor_p].node.mergedLocalPins.size() >= 2) used_local_node.insert(neighbor_p);
+            if(alreadyInOpenNets[net.netId][{cell1.x,cell1.y,pin.layer,neighbor_p.x, neighbor_p.y, neighbor_p.z}] == true) continue;
+            neighbor.second.update_wire_length();
+            net_wirelength += neighbor.second.wire_length;
+            open_nets.emplace_back(Point(cell1.x,cell1.y,pin.layer), neighbor_p, net.netId, net.branch_nodes[cell_p].node, neighbor.second, cell_idx2);
+            alreadyInOpenNets[net.netId][{cell1.x,cell1.y,pin.layer,neighbor_p.x, neighbor_p.y, neighbor_p.z}] = true;
+        }
+        if(net.branch_nodes[cell_p].node.type == 2 && net.branch_nodes[cell_p].neighbors.empty()
+        && alreadyInOpenNets[net.netId][{cell1.x,cell1.y,pin.layer,cell2OriX, cell2OriY, pin.layer}] == false) {
+            net_wirelength++;
+            open_nets.emplace_back(Point(cell1.x,cell1.y,pin.layer), Point(cell2OriX,cell2OriY,pin.layer), net.netId, Node(), TwoPinNet(), cell_idx2);
+            alreadyInOpenNets[net.netId][{cell1.x,cell1.y,pin.layer,cell2OriX, cell2OriY, pin.layer}] = true;
+        }
+    }
+    del_cell_neighbor(cell_idx1);
+    del_cell_neighbor(cell_idx2);
+    add_cell(cell2OriX, cell2OriY, cell_idx1);
+    add_cell(cell1OriX, cell1OriY, cell_idx2);
+    bool routing_success = 1;
+    for(auto& open_net : open_nets) {
+        int cellIdx = get<5>(open_net);
+        auto& net = nets[get<2>(open_net)];
+        unordered_map<Point,Point,MyHashFunction> visited_p;
+        //unordered_map<Point, int, MyHashFunction> component_map;
+	    //net.set_point_component(component_map);
+        Point source = get<0>(open_net), sink = get<1>(open_net), reach_p;
+        if(source == sink) continue;
+        auto pos1 = net.branch_nodes.find(source);
+        int isNeighbor = -1;
+        if(pos1 != net.branch_nodes.end()) {
+            TreeNode& sourceTreeNode = pos1->second;
+            for(int i = 0; i < sourceTreeNode.neighbors.size(); ++i) {
+                if(sourceTreeNode.neighbors[i].first == sink) {
+                    isNeighbor = i;
+                    break;
+                }
+            }
+        }
+        if(isNeighbor != -1) continue;
+        int find_flg = A_star_routing(source, sink, get<2>(open_net), visited_p);
+        if(find_flg == 0) {
+            cout << "#A star fail\n";
+            // reverse
+            routing_success = 0;
+            break;
+        }
+        // success one net
+        TwoPinNet two_pin = convert_path_to_twopin(source, sink, visited_p);
+        two_pin.update_wire_length();
+        net_wirelength -= two_pin.wire_length;
+        if(net_wirelength <= 0) {
+            // worse routing
+            routing_success = 0;
+            break;
+        }
+        // rebuild branch_nodes
+        net.branch_nodes[source].neighbors.emplace_back(sink,two_pin);
+        net.branch_nodes[sink].neighbors.emplace_back(source,two_pin_reverse(two_pin));
+        // add two_pin demand into graph
+        net.add_twopin_demand_into_graph(two_pin, grids);
+        netK[cellIdx][net.netId]++;
+    }
+    if(routing_success) {
+        movedCell.insert(cell_idx1);
+        movedCell.insert(cell_idx2);
+        return 1;
+    }
+    else {
+        //cout << "#del cell (" << cell.x << "," << cell.y << ")\n";
+        // reverse original net
+        del_cell_last_k_neighbor(cell_idx1, netK[cell_idx1]);
+        del_cell_last_k_neighbor(cell_idx2, netK[cell_idx2]);
+        if(cell1OriX == cell1.originalX && cell1OriY == cell1.originalY)
+            movedCell.erase(cell_idx1);
+        if(cell2OriX == cell2.originalX && cell2OriY == cell2.originalY)
+            movedCell.erase(cell_idx2);
+        add_cell(cell1OriX, cell1OriY, cell_idx1);
+        add_cell(cell2OriX, cell2OriY, cell_idx2);
+        for(auto& open_net : open_nets) {
+            auto& net = nets[get<2>(open_net)];
+            // resume net.branch_nodes
+            if(updated_branchs.find(net.netId) == updated_branchs.end()) {
+                updated_branchs.insert(net.netId);
+                net.branch_nodes = branchs_copy[net.netId];
+            }
+            Point p1 = (get<5>(open_net) == cell_idx1)? Point(cell1OriX, cell1OriY, get<0>(open_net).z):Point(cell2OriX, cell2OriY, get<0>(open_net).z);
+            if(p1 == get<1>(open_net))
+                continue;
+            // add two_pin demand into graph
+            net.add_twopin_demand_into_graph(get<4>(open_net), grids);
+            cout << "#after reverse " << get<2>(open_net) << " from " << p1 << " to " << get<1>(open_net) << "\n";
+        }
+        cout << "#after end\n";
+        return 0;
+    }
 }
