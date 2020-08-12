@@ -165,7 +165,6 @@ struct Cell : public MasterCell{
     bool movable;
     int x,y;
     int originalX, originalY;
-    //std::unordered_set<int> connectedNets;    
 };
 
 struct Gcell{
@@ -191,8 +190,9 @@ public:
     void construct_2pin_nets();
     void move_cells_force();
     void wirelength_driven_move();
-    void swap_two_cells(int cell_idx1, int cell_idx2);
+    bool swap_two_cells(int cell_idx1, int cell_idx2);
     bool move_cell_into_optimal_region(int cell_idx);
+    void swap_into_optimal_region(void);
     void reroute_all_net();
     bool find_optimal_pos(Cell& cell, std::vector<std::pair<Point,int>>& cells_pos);
     // return cell profit after put in cell
