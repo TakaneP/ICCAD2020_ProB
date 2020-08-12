@@ -97,6 +97,21 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     remove_dangling_wire(grids);
     //print_two_pins(routingTree);
     remove_branch_cycle(grids);
+    update_wirelength();
+}
+
+void Net::update_wirelength() {
+    unordered_set<Point> visited;
+    wire_length = 0;
+    for(auto& node : branch_nodes) {
+        for(auto& neighbor : node.second.neighbors) {
+            if(visited.find(neighbor.first) != visited.end())
+                continue;
+            neighbor.second.update_wire_length();
+            wire_length+=neighbor.second.wire_length;
+        }
+        visited.insert(node.first);
+    }
 }
 
 void Net::set_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, std::vector<Cell>& cellInstances, std::vector<MasterCell>& masterCells, 
@@ -840,6 +855,7 @@ void RoutingGraph::del_cell_neighbor(int cellIndex) {
 
             for(auto it = treeNode.neighbors.begin(); it != treeNode.neighbors.end(); ++it) {
                 const Point& neighbor = it->first;
+                net.wire_length -= it->second.wire_length;
                 net.del_twoPinNet_from_graph(it->second, grids);
                 TreeNode& neighborTreeNode = net.branch_nodes[neighbor];
                 for(int j = 0; j < neighborTreeNode.neighbors.size(); ++j) {
@@ -955,7 +971,8 @@ void RoutingGraph::del_cell_point_net(int cellIndex, vector<pair<Point, int>>& p
             if(neighborTreeNode.node.type == 0 && neighborTreeNode.neighbors.size() == 2) {
                 net.clear_steiner_point(neighbor, grids);
             }
-            treeNode.neighbors.pop_back();   
+            net.wire_length -= treeNode.neighbors.back().second.wire_length;
+            treeNode.neighbors.pop_back();          
         }
     }
     // del cell
@@ -1809,8 +1826,6 @@ bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,
     for(auto& net_open_net : open_nets) {
         auto& net = nets[net_open_net.first];
         cout << "net " << net.netId << endl;
-        // tmp debug
-        //if(net.minRoutingLayer > 0) return 0;
         unordered_map<Point,Point,MyHashFunction> visited_p;
         unordered_map<Point, int, MyHashFunction> component_map;
         net.set_point_component(component_map);
@@ -1824,10 +1839,6 @@ bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,
         if(b_min.z > b_max.z)  return 0;
         vector<vector<vector<int>>> comp_grid_map;
         set_all_comp_grid_map(comp_grid_map, net.netId, component_map, b_min, b_max);
-        /*cout << "first sink_comp_set: ";
-        for(auto& sink : sink_comp_set) 
-            cout << sink << " ";
-        cout << endl;*/
         int source_comp = component_map.begin()->second;
         priority_queue<pair<Point,int>, vector<pair<Point,int>>, greater<pair<Point,int>>> p_q;
         while(sink_comp_set.size() > 1) {
@@ -1835,14 +1846,6 @@ bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,
             source_comp_set.insert(source_comp);
             sink_comp_set.erase(source_comp);
             Point reach_p, source;
-            /*cout << "source_comp_set: ";
-            for(auto& source : source_comp_set) 
-                cout << source << " ";
-            cout << endl;
-            cout << "sink_comp_set: ";
-            for(auto& sink : sink_comp_set) 
-                cout << sink << " ";
-            cout << endl;*/
             int find_flg = tree2tree_routing(p_q, b_min, b_max, source_comp_set, sink_comp_set, comp_grid_map, net.netId, visited_p, reach_p);         
             if(find_flg == 0) {
                 cout << "#T2T fail\n";
@@ -1878,6 +1881,7 @@ bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,
             // rebuild branch_nodes
             net.branch_nodes[source].neighbors.emplace_back(reach_p,two_pin);
             net.branch_nodes[reach_p].neighbors.emplace_back(source,two_pin_reverse(two_pin));
+            net.wire_length += two_pin.wire_length;
             // add two_pin demand into graph
             net.add_twopin_demand_into_graph(two_pin, grids);
             for(auto& path : two_pin.paths)

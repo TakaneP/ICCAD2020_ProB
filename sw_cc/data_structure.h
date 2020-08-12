@@ -107,6 +107,7 @@ struct Net{
     Net() {}
     int netId;
     int minRoutingLayer;
+    int wire_length;
     std::vector<std::pair<int,int>> pins; //First: Cell Instance  Second: Pin
     std::vector<std::pair<Point,Point>> routingSegments;
     std::unordered_map <Point,TreeNode,MyHashFunction> branch_nodes;
@@ -116,6 +117,7 @@ struct Net{
         std::vector<MasterCell>& masterCells,
         std::vector<std::vector<std::vector<Gcell>>>& grids
         );
+    void update_wirelength();
     // add segment in passingMap, and construct steiner_map
     void set_passing_map(std::vector<std::vector<std::vector<DegreeNode>>>& degreeMap, std::vector<Cell>& cellInstances, 
         std::vector<MasterCell>& masterCells, std::unordered_set <Point,MyHashFunction>& pin_map, 
