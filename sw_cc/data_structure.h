@@ -107,7 +107,7 @@ struct Net{
     Net() {}
     int netId;
     int minRoutingLayer;
-    int wire_length;
+    int wire_length, ori_wire_length;
     std::vector<std::pair<int,int>> pins; //First: Cell Instance  Second: Pin
     std::vector<std::pair<Point,Point>> routingSegments;
     std::unordered_map <Point,TreeNode,MyHashFunction> branch_nodes;
@@ -189,9 +189,9 @@ public:
     void del_cell_point_net(int cellIndex, std::vector<std::pair<Point, int>>& point_nets);
     void construct_2pin_nets();
     void move_cells_force();
-    void wirelength_driven_move();
+    void wirelength_driven_move(int& wl_improve);
     bool swap_two_cells(int cell_idx1, int cell_idx2);
-    bool move_cell_into_optimal_region(int cell_idx);
+    bool move_cell_into_optimal_region(int cell_idx, int& net_wirelength);
     void swap_into_optimal_region(void);
     void reroute_all_net();
     bool find_optimal_pos(Cell& cell, std::vector<std::pair<Point,int>>& cells_pos);
