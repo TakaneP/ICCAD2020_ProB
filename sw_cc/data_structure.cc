@@ -41,7 +41,7 @@ Point norm(const Point& p) {
 }
 
 TwoPinNet two_pin_reverse(TwoPinNet two_pin) {
-    swap(two_pin.n1, two_pin.n1);
+    swap(two_pin.n1, two_pin.n2);
     reverse(two_pin.paths.begin(), two_pin.paths.end());
     for(auto& path : two_pin.paths)
         swap(path.first, path.second);
@@ -958,7 +958,8 @@ void RoutingGraph::del_cell_point_net(int cellIndex, vector<pair<Point, int>>& p
     placement[x][y].erase(cellIndex);
     del_cell_demand_from_graph(x, y, cellInstances[cellIndex].mcType);
     // del designate net on point
-    for(auto& p_net : point_nets) {
+    for(int i = point_nets.size()-1; i >= 0; --i) {
+        pair<Point, int>& p_net = point_nets[i];
         Point p = p_net.first;
         int netIndex = p_net.second;
         Net& net = nets[netIndex];
@@ -1270,10 +1271,9 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve) {
             bucket.erase(bucket.begin());
         int wl=0;
         bool success = move_cell_into_optimal_region(candidate, wl);
-        wl_improve = (wl<=0) ? wl_improve : wl_improve + wl;
-        //cout << "wl_improve " << wl_improve << endl;
+        wl_improve = success ? wl_improve + wl : wl_improve;
         if(success) count++;
-        //if(count > maxCellMove/30) return;
+        if(count > maxCellMove/2) return;
     }
 }
 
@@ -1324,7 +1324,6 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
         }        
         if(net.branch_nodes[cell_p].node.type == 2 && net.branch_nodes[cell_p].neighbors.empty()
         && alreadyInOpenNets[net.netId][{to_p.x,to_p.y,pin.layer,cell_ori_x, cell_ori_y, pin.layer}] == false) {
-            net_wirelength++;
             open_nets[net.netId].emplace_back(Point(to_p.x,to_p.y,pin.layer), Point(cell_ori_x,cell_ori_y,pin.layer), net.netId, Node(), TwoPinNet());
             alreadyInOpenNets[net.netId][{to_p.x,to_p.y,pin.layer,cell_ori_x, cell_ori_y, pin.layer}] = true;
         }
@@ -1342,6 +1341,7 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
     }
     else {
         // reverse original net
+        net_wirelength = 0;
         del_cell_point_net(cell_idx, point_nets);
         if(cell_ori_x == cell.originalX && cell_ori_y == cell.originalY)
             movedCell.erase(cell_idx);
@@ -1492,7 +1492,7 @@ bool RoutingGraph::find_optimal_pos(Cell& cell, vector<pair<Point,int>>& cells_p
 
 int RoutingGraph::check_cell_cost_in_graph(int x, int y, Cell& cell) {
     int MCtype = cell.mcType;
-    vector<int> layer_remain(layer), pre_layer_remain(layer, 0), nxt_layer_remain(layer, 0);
+    vector<int> layer_remain(layer), passing_net_profit(layer,0), pre_layer_remain(layer, 0), nxt_layer_remain(layer, 0);
     vector<unordered_set<int>> numberOfNetsOnLayer(layer);
     MasterCell& masterCell = masterCells[MCtype];
     for(auto& pin : cell.pins) {
@@ -1517,6 +1517,13 @@ int RoutingGraph::check_cell_cost_in_graph(int x, int y, Cell& cell) {
         layer_remain[n] = grids[x][y][n].capacity - grids[x][y][n].demand - numberOfNetsOnLayer[n].size();
         if(y > 0) pre_layer_remain[n] = grids[x][y-1][n].capacity - grids[x][y-1][n].demand;
         if(y < (column-1)) nxt_layer_remain[n] = grids[x][y+1][n].capacity - grids[x][y+1][n].demand;
+    }
+    // calculate locate at passing net benifit
+    for(auto& pin : cell.pins) {
+        int& p_layer = pin.layer;
+        int& p_net_id = pin.connectedNet;
+        if(grids[x][y][p_layer].passingNets.find(p_net_id) != grids[x][y][p_layer].passingNets.end())
+            passing_net_profit[p_layer] += 50;
     }
     // add blockage demand
     for(auto it = masterCell.blockages.begin(); it != masterCell.blockages.end(); ++it) {
@@ -1554,9 +1561,9 @@ int RoutingGraph::check_cell_cost_in_graph(int x, int y, Cell& cell) {
     // calculate profit
     int profit = 0;
     for(int n=0; n<layer_remain.size(); n++) {           
-        profit += layer_remain[n];
         if(layer_remain[n] < 0 || pre_layer_remain[n] < 0 || nxt_layer_remain[n] < 0)
             return -1;
+        profit += (layer_remain[n] + passing_net_profit[n]);
     }
     return profit;
 }
