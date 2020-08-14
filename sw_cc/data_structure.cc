@@ -978,9 +978,6 @@ void RoutingGraph::del_cell_point_net(int cellIndex, vector<pair<Point, int>>& p
                     break;
                 }
             }
-            if(neighborTreeNode.node.type == 0 && neighborTreeNode.neighbors.size() == 2) {
-                net.clear_steiner_point(neighbor, grids);
-            }
             net.wire_length -= treeNode.neighbors.back().second.wire_length;
             treeNode.neighbors.pop_back();          
         }
