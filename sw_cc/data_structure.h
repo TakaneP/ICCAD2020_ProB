@@ -188,13 +188,14 @@ public:
     void del_cell_last_k_neighbor(int cellIndex, std::unordered_map<int, int>& netK); //key: netId, value: delete last k neighbors for that net
     void del_cell_point_net(int cellIndex, std::vector<std::pair<Point, int>>& point_nets);
     void construct_2pin_nets();
-    void move_cells_force();
-    void wirelength_driven_move(int& wl_improve);
+    // mode 0: optimal region, mode 1: force
+    void wirelength_driven_move(int& wl_improve, int mode);
     bool swap_two_cells(int cell_idx1, int cell_idx2);
-    bool move_cell_into_optimal_region(int cell_idx, int& net_wirelength);
+    bool move_cell_into_optimal_region(int cell_idx, int& net_wirelength, int mode);
     void swap_into_optimal_region(void);
     void reroute_all_net();
     bool find_optimal_pos(Cell& cell, std::vector<std::pair<Point,int>>& cells_pos);
+    bool find_force_pos(Cell& cell, std::vector<std::pair<Point,int>>& cells_pos);
     // return cell profit after put in cell
     int check_cell_cost_in_graph(int x, int y, Cell& cell);
     int Z_shape_routing(Point source, Point sink, int NetId);

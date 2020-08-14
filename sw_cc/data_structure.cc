@@ -1158,16 +1158,7 @@ bool sortbysec(const pair<Point,int> &a, const pair<Point,int> &b)
     return (a.second > b.second); 
 } 
 
-void RoutingGraph::move_cells_force() {
-    for(int cell_idx = 0; cell_idx < cellInstances.size(); cell_idx++) {
-        if(this->movedCell.size() >= maxCellMove) return;
-        //if(cell_idx > 104727) return;
-        int wire_length;
-        move_cell_into_optimal_region(cell_idx, wire_length);
-    }
-}
-
-void RoutingGraph::wirelength_driven_move(int& wl_improve) {
+void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
     map<double, unordered_set<int>> bucket;
     vector<double> cellGains(cellInstances.size(), 0.0);
     vector<int> cellNets(cellInstances.size(), 0);
@@ -1260,14 +1251,14 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve) {
         if(candidateList.empty())
             bucket.erase(bucket.begin());
         int wl=0;
-        bool success = move_cell_into_optimal_region(candidate, wl);
+        bool success = move_cell_into_optimal_region(candidate, wl, mode);
         wl_improve = success ? wl_improve + wl : wl_improve;
         if(success) count++;
         if(count > maxCellMove/2) return;
     }
 }
 
-bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wirelength) {
+bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wirelength, int mode) {
     unordered_map<int, int> netK;
     //cout << "\n#cell " << cell_idx << endl;
     Cell& cell = cellInstances[cell_idx];
@@ -1275,7 +1266,11 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
     if(!cell.movable) return 0;
     int cell_ori_x = cell.x, cell_ori_y = cell.y;
     vector<pair<Point,int>> cells_pos;
-    bool opt_flag = find_optimal_pos(cell, cells_pos);
+    bool opt_flag = 0;
+    if(mode == 0)
+        opt_flag = find_optimal_pos(cell, cells_pos);
+    else if(mode == 1)
+        opt_flag = find_force_pos(cell, cells_pos);
     if(cells_pos.size() == 0)
         return 0;
     Point to_p(cells_pos[0].first.x,cells_pos[0].first.y,0);
@@ -1455,6 +1450,48 @@ bool RoutingGraph::find_optimal_pos(Cell& cell, vector<pair<Point,int>>& cells_p
         x_series.push_back(max_x);
         y_series.push_back(min_y);
         y_series.push_back(max_y);
+    }
+    // no optimal region
+    if(x_series.size()==0 || y_series.size()==0) return 0;
+    sort(x_series.begin(), x_series.end());
+    sort(y_series.begin(), y_series.end());
+    // count median boundary
+    int opt_x_left = (x_series.size()%2) ? x_series[x_series.size()/2] : x_series[(x_series.size()-1)/2];
+    int opt_x_right = (x_series.size()%2) ? x_series[x_series.size()/2] : x_series[(x_series.size()-1)/2+1];
+    int opt_y_left = (y_series.size()%2) ? y_series[y_series.size()/2] : y_series[(y_series.size()-1)/2];
+    int opt_y_right = (y_series.size()%2) ? y_series[y_series.size()/2] : y_series[(y_series.size()-1)/2+1];
+    // cell already in optimal region
+    if(cell.x >= opt_x_left && cell.x <= opt_x_right && cell.y >= opt_y_left && cell.y <= opt_y_right)
+        return 0;
+    for(int x=opt_x_left; x<=opt_x_right; x++) {
+        for(int y=opt_y_left; y<=opt_y_right; y++) {
+            int profit = check_cell_cost_in_graph(x, y, cell);
+            if(profit > 0)
+                cells_pos.emplace_back(Point(x,y,0), profit);
+        }
+    }
+    if(cells_pos.empty()) return 0;
+    sort(cells_pos.begin(), cells_pos.end(), sortbysec);
+    return 1;
+}
+
+bool RoutingGraph::find_force_pos(Cell& cell, vector<pair<Point,int>>& cells_pos) {
+    if(cell.movable == 0)
+        return 0;
+    // move cell to free space
+    vector<int> x_series, y_series;
+    for(auto& pin : cell.pins) {
+        // find optimal region
+        if(pin.connectedNet == -1)
+            continue;
+        Net& net = nets[pin.connectedNet];
+        Point p(cell.x, cell.y, pin.layer);
+        if(net.branch_nodes.find(p) == net.branch_nodes.end())
+            continue;
+        for(auto& neighbor : net.branch_nodes[p].neighbors) {
+            x_series.push_back(neighbor.first.x);
+            y_series.push_back(neighbor.first.y);
+        }
     }
     // no optimal region
     if(x_series.size()==0 || y_series.size()==0) return 0;

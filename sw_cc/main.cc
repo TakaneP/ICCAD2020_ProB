@@ -30,17 +30,19 @@ int main(int argc, char* argv[])
 	//Tree fluteTree = routingGraph->RSMT(x,y);
 	//cout << fluteTree.length << "\n";
     routingGraph->construct_2pin_nets();
-    routingGraph->swap_into_optimal_region();
+    //routingGraph->swap_into_optimal_region();
     int prevSize = 0;
+    int count = 0;
     while(1) {
         //routingGraph->move_cells_force();
         int wire_length=0;
-        routingGraph->wirelength_driven_move(wire_length);
+        routingGraph->wirelength_driven_move(wire_length, count%2);
         cout << "####size: " << routingGraph->movedCell.size() << endl;
         cout << "####imporve " << wire_length << endl;
         if(wire_length <= 0) break;
         if((int)(routingGraph->movedCell.size() - prevSize) <= 0) break;
         else prevSize = routingGraph->movedCell.size();
+        count++;
     }
 
     if(argc == 3) {
