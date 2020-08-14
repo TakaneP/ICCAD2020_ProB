@@ -30,6 +30,7 @@ int main(int argc, char* argv[])
 	//Tree fluteTree = routingGraph->RSMT(x,y);
 	//cout << fluteTree.length << "\n";
     routingGraph->construct_2pin_nets();
+    routingGraph->swap_into_optimal_region();
     int prevSize = 0;
     while(1) {
         //routingGraph->move_cells_force();
