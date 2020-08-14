@@ -34,8 +34,11 @@ int main(int argc, char* argv[])
     int prevSize = 0;
     while(1) {
         //routingGraph->move_cells_force();
-        routingGraph->wirelength_driven_move();
+        int wire_length=0;
+        routingGraph->wirelength_driven_move(wire_length);
         cout << "####size: " << routingGraph->movedCell.size() << endl;
+        cout << "####imporve " << wire_length << endl;
+        if(wire_length <= 0) break;
         if((int)(routingGraph->movedCell.size() - prevSize) <= 0) break;
         else prevSize = routingGraph->movedCell.size();
     }
