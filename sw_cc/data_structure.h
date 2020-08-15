@@ -195,6 +195,7 @@ public:
     bool move_cell_into_optimal_region(int cell_idx, int& net_wirelength, int mode);
     void swap_into_optimal_region(void);
     void reroute_all_net();
+    void reroute_cell_two_pin_net(int net_Id);
     bool find_optimal_pos(Cell& cell, std::vector<std::pair<Point,int>>& cells_pos);
     bool find_force_pos(Cell& cell, std::vector<std::pair<Point,int>>& cells_pos);
     // return cell profit after put in cell

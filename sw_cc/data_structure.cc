@@ -1340,7 +1340,7 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
     // test reroute
     vector<pair<Point, int>> point_nets;
     bool routing_success = connect_all_nets(open_nets, net_wirelength, netK, point_nets);
-    if(!routing_success) {
+    if(routing_success) {
         for(auto& netId : net_id_pool) {
             nets[netId].update_wirelength();
             all_net_wl -= nets[netId].wire_length;
@@ -2252,6 +2252,14 @@ void RoutingGraph::reroute_all_net() {
         }
     }
 }
+
+// void RoutingGraph::reroute_cell_two_pin_net(int net_Id) {
+//     for(auto& node : nets[net_Id].branch_nodes) {
+//         if(node.second.node.type == 1) {
+            
+//         }
+//     }
+// }
 
 void TwoPinNet::update_wire_length() {
     wire_length = 0;
