@@ -98,6 +98,7 @@ void Net::convert_seg_to_2pin(vector<vector<vector<DegreeNode>>>& degreeMap,
     //print_two_pins(routingTree);
     remove_branch_cycle(grids);
     update_wirelength();
+    ori_wire_length = wire_length;
 }
 
 void Net::update_wirelength() {
@@ -112,7 +113,19 @@ void Net::update_wirelength() {
         }
         visited.insert(node.first);
     }
-    ori_wire_length = wire_length;
+}
+
+void Net::update_wirelength_fast() {
+    unordered_set<Point, MyHashFunction> visited;
+    wire_length = 0;
+    for(auto& node : branch_nodes) {
+        for(auto& neighbor : node.second.neighbors) {
+            if(visited.find(neighbor.first) != visited.end())
+                continue;
+            wire_length+=neighbor.second.wire_length;
+        }
+        visited.insert(node.first);
+    }
 }
 
 void Net::set_passing_map(vector<vector<vector<DegreeNode>>>& degreeMap, std::vector<Cell>& cellInstances, std::vector<MasterCell>& masterCells, 
@@ -1283,10 +1296,12 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
     unordered_map<int,unordered_map<Point, TreeNode, MyHashFunction>> branchs_copy;
     unordered_set<int> updated_branchs;
     unordered_map<int, map<tuple<int, int, int, int, int, int>, bool>> alreadyInOpenNets;
+    unordered_set<int> net_id_pool;
     for(auto& pin : cell.pins) {     
         if(pin.connectedNet == -1)
             continue;
         auto& net = nets[pin.connectedNet];
+        net_id_pool.insert(pin.connectedNet);
         // copy branch_node for reverse
         if(branchs_copy.find(pin.connectedNet) == branchs_copy.end())
             branchs_copy[pin.connectedNet] = net.branch_nodes;
@@ -1313,6 +1328,11 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
             alreadyInOpenNets[net.netId][{to_p.x,to_p.y,pin.layer,cell_ori_x, cell_ori_y, pin.layer}] = true;
         }
     }
+    int all_net_wl = 0;
+    for(auto& netId : net_id_pool) {
+        nets[netId].update_wirelength();
+        all_net_wl += nets[netId].wire_length;
+    }
     // delete cell neighbor two-pin
     del_cell_neighbor(cell_idx);
     add_cell(to_p.x,to_p.y,cell_idx);
@@ -1320,6 +1340,13 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
     // test reroute
     vector<pair<Point, int>> point_nets;
     bool routing_success = connect_all_nets(open_nets, net_wirelength, netK, point_nets);
+    if(!routing_success) {
+        for(auto& netId : net_id_pool) {
+            nets[netId].update_wirelength();
+            all_net_wl -= nets[netId].wire_length;
+        }
+        if(all_net_wl <= 0) routing_success = 0;
+    }
     if(routing_success) {
         movedCell.insert(cell_idx);
         return 1;
