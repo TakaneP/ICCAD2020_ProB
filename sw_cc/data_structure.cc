@@ -1764,8 +1764,9 @@ bool RoutingGraph::A_star_routing(Point source, Point sink, int NetId, unordered
     return find_flag;
 }
 
-int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<Point,int>>, greater<pair<Point,int>>>& p_q, Point b_min, Point b_max, unordered_set<int>& source_comp_set,
-    unordered_set<int>& sink_comp_set, vector<vector<vector<int>>>& comp_grid_map, int NetId, 
+int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<Point,int>>, greater<pair<Point,int>>>& p_q, Point b_min, 
+    Point b_max, unordered_set<int>& source_comp_set, unordered_set<int>& sink_comp_set, 
+    vector<vector<vector<int>>>& comp_grid_map, vector<vector<vector<int>>>& cost_grid_map, int NetId, 
     unordered_map<Point,Point,MyHashFunction>& visited_p, Point& reach_p) {
     while(!p_q.empty()) {
         auto frontier = p_q.top();
@@ -1776,6 +1777,7 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
         if(local_p.x<0 || local_p.y<0 || local_p.z<0 || f_point.x>b_max.x || f_point.y>b_max.y || f_point.z>b_max.z)
             continue;
         int tmp_comp = comp_grid_map[local_p.x][local_p.y][local_p.z];
+        int via_cost = 0;
         //cout << "f_point: " << f_point << " " << tmp_comp << endl;
         if(sink_comp_set.find(tmp_comp) != sink_comp_set.end()){
             // find sink
@@ -1791,8 +1793,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
             if(new_pos != new_gcell.passingNets.end() && new_pos->second != 0)
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
-            if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {              
+            int& past_cost = cost_grid_map[local_p.x+1][local_p.y][local_p.z];
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > cost + 1) {    
                 p_q.emplace(new_p, cost + 1);
+                past_cost = cost+1;
                 visited_p[new_p] = f_point;
             }
         }
@@ -1805,8 +1809,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
             if(new_pos != new_gcell.passingNets.end() && new_pos->second != 0)
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
-            if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
-                p_q.emplace(new_p, cost +1);
+            int& past_cost = cost_grid_map[local_p.x-1][local_p.y][local_p.z];
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > cost + 1) {       
+                p_q.emplace(new_p, cost + 1);
+                past_cost = cost+1;
                 visited_p[new_p] = f_point;
             }
         }
@@ -1819,8 +1825,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
             if(new_pos != new_gcell.passingNets.end() && new_pos->second != 0)
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
-            if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
+            int& past_cost = cost_grid_map[local_p.x][local_p.y+1][local_p.z];
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > cost + 1) {       
                 p_q.emplace(new_p, cost + 1);
+                past_cost = cost+1;
                 visited_p[new_p] = f_point;
             }
         }
@@ -1833,8 +1841,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
             if(new_pos != new_gcell.passingNets.end() && new_pos->second != 0)
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
-            if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
+            int& past_cost = cost_grid_map[local_p.x][local_p.y-1][local_p.z];
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > cost + 1) {       
                 p_q.emplace(new_p, cost + 1);
+                past_cost = cost+1;
                 visited_p[new_p] = f_point;
             }
         }
@@ -1847,8 +1857,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
             if(new_pos != new_gcell.passingNets.end() && new_pos->second != 0)
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
-            if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
-                p_q.emplace(new_p, cost + 1);
+            int& past_cost = cost_grid_map[local_p.x][local_p.y][local_p.z+1];
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > cost + 1 + via_cost) {       
+                p_q.emplace(new_p, cost + 1 + via_cost);
+                past_cost = cost+1+via_cost;
                 visited_p[new_p] = f_point;
             }
         }
@@ -1861,8 +1873,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
             if(new_pos != new_gcell.passingNets.end() && new_pos->second != 0)
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
-            if(remain > 0 && visited_p.find(new_p) == visited_p.end()) {
-                p_q.emplace(new_p, cost + 1);
+            int& past_cost = cost_grid_map[local_p.x][local_p.y][local_p.z-1];
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > cost + 1 + via_cost) {       
+                p_q.emplace(new_p, cost + 1 + via_cost);
+                past_cost = cost+1+via_cost;
                 visited_p[new_p] = f_point;
             }
         }
@@ -1916,8 +1930,8 @@ bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,
         net.calc_bounding_box(b_min, b_max, this->layer);
         //cout << "b_box " << b_min << " " << b_max << endl;
         if(b_min.z > b_max.z)  return 0;
-        vector<vector<vector<int>>> comp_grid_map;
-        set_all_comp_grid_map(comp_grid_map, net.netId, component_map, b_min, b_max);
+        vector<vector<vector<int>>> comp_grid_map, cost_grid_map;
+        set_all_comp_grid_map(comp_grid_map, cost_grid_map, net.netId, component_map, b_min, b_max);
         int source_comp = component_map.begin()->second;
         priority_queue<pair<Point,int>, vector<pair<Point,int>>, greater<pair<Point,int>>> p_q;
         while(sink_comp_set.size() > 1) {
@@ -1925,7 +1939,7 @@ bool RoutingGraph::connect_all_nets(unordered_map<int, vector<tuple<Point,Point,
             source_comp_set.insert(source_comp);
             sink_comp_set.erase(source_comp);
             Point reach_p, source;
-            int find_flg = tree2tree_routing(p_q, b_min, b_max, source_comp_set, sink_comp_set, comp_grid_map, net.netId, visited_p, reach_p);         
+            int find_flg = tree2tree_routing(p_q, b_min, b_max, source_comp_set, sink_comp_set, comp_grid_map, cost_grid_map, net.netId, visited_p, reach_p);         
             if(find_flg == 0) {
                 // reverse
                 return 0;
@@ -2142,13 +2156,22 @@ void RoutingGraph::set_comp_grid_map(std::vector<std::vector<std::vector<int>>>&
     }
 }
 
-void RoutingGraph::set_all_comp_grid_map(std::vector<std::vector<std::vector<int>>>& comp_grid_map, int netId,
+void RoutingGraph::set_all_comp_grid_map(std::vector<std::vector<std::vector<int>>>& comp_grid_map, 
+    std::vector<std::vector<std::vector<int>>>& cost_grid_map, int netId,
     unordered_map<Point, int, MyHashFunction>& component_map, Point box_min, Point box_max) {
     comp_grid_map.resize(box_max.x-box_min.x+1);
-    for(auto& comp_x : comp_grid_map) {
+    cost_grid_map.resize(box_max.x-box_min.x+1);
+    for(int x=0; x<comp_grid_map.size(); x++) {
+        auto& comp_x = comp_grid_map[x];
+        auto& cost_x = cost_grid_map[x];
         comp_x.resize(box_max.y-box_min.y+1);
-        for(auto& comp_y : comp_x)
+        cost_x.resize(box_max.y-box_min.y+1);
+        for(int y=0; y<comp_x.size(); y++) {
+            auto& comp_y = comp_x[y];
+            auto& cost_y = cost_x[y];
             comp_y.resize(box_max.z-box_min.z+1, 0);
+            cost_y.resize(box_max.z-box_min.z+1, INT32_MAX);
+        }         
     }
     Net& net = nets[netId];
     unordered_set<Point, MyHashFunction> treversed;
