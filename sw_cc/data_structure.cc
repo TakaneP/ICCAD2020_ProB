@@ -1288,6 +1288,10 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
         return 0;
     Point to_p(cells_pos[0].first.x,cells_pos[0].first.y,0);
     bool success = move_cell_reroute_or_reverse(to_p, cell_idx, net_wirelength);
+    if(!success) {
+        Point to_p(cell.x, cell.y, 0);
+        move_cell_reroute_or_reverse(to_p, cell_idx, net_wirelength);
+    }
     return success;
 }
 
