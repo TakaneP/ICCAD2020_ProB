@@ -161,11 +161,13 @@ struct Cell : public MasterCell{
     Cell(std::vector<Pin>& p, std::unordered_map<int, int>& b, bool m, int _x, int _y, int mc): MasterCell(p,b), movable(m), x(_x), y(_y), mcType(mc) {
         originalX = x;
         originalY = y;
+        fail_count = 0;
     }
     int mcType;
     bool movable;
     int x,y;
     int originalX, originalY;
+    int fail_count;
 };
 
 struct Gcell{

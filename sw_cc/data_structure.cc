@@ -1267,7 +1267,8 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
         bool success = move_cell_into_optimal_region(candidate, wl, mode);
         wl_improve = success ? wl_improve + wl : wl_improve;
         if(success) count++;
-        if(count > maxCellMove/2) return;
+        if(mode != 2)
+            if(count > maxCellMove/2) return;
     }
 }
 
@@ -1278,6 +1279,10 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
     if(!cell.movable) return 0;
     vector<pair<Point,int>> cells_pos;
     bool opt_flag = 0;
+    if(mode == 2) {
+        Point to_p(cell.x, cell.y, 0);
+        return move_cell_reroute_or_reverse(to_p, cell_idx, net_wirelength);
+    }
     if(mode == 0)
         opt_flag = find_optimal_pos(cell, cells_pos);
     else if(mode == 1)
@@ -1288,6 +1293,7 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
         return 0;
     Point to_p(cells_pos[0].first.x,cells_pos[0].first.y,0);
     bool success = move_cell_reroute_or_reverse(to_p, cell_idx, net_wirelength);
+    cell.fail_count = (!success) ? cell.fail_count+1 : cell.fail_count;
     if(!success) {
         Point to_p(cell.x, cell.y, 0);
         move_cell_reroute_or_reverse(to_p, cell_idx, net_wirelength);
