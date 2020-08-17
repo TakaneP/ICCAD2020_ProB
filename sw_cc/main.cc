@@ -33,10 +33,14 @@ int main(int argc, char* argv[])
     //routingGraph->swap_into_optimal_region();
     int prevSize = 0;
     int count = 0;
+    // 2 pin reroute
+    int wire_length=0;
+    routingGraph->wirelength_driven_move(wire_length, 2);
+    
     while(1) {
         //routingGraph->move_cells_force();
         int wire_length=0;
-        routingGraph->wirelength_driven_move(wire_length, 0);
+        routingGraph->wirelength_driven_move(wire_length, count%2);
         cout << "####size: " << routingGraph->movedCell.size() << endl;
         cout << "####imporve " << wire_length << endl;
         if(wire_length <= 0) break;

@@ -161,11 +161,13 @@ struct Cell : public MasterCell{
     Cell(std::vector<Pin>& p, std::unordered_map<int, int>& b, bool m, int _x, int _y, int mc): MasterCell(p,b), movable(m), x(_x), y(_y), mcType(mc) {
         originalX = x;
         originalY = y;
+        fail_count = 0;
     }
     int mcType;
     bool movable;
     int x,y;
     int originalX, originalY;
+    int fail_count;
 };
 
 struct Gcell{
@@ -193,6 +195,7 @@ public:
     void wirelength_driven_move(int& wl_improve, int mode);
     bool swap_two_cells(int cell_idx1, int cell_idx2);
     bool move_cell_into_optimal_region(int cell_idx, int& net_wirelength, int mode);
+    bool move_cell_reroute_or_reverse(Point to_p, int cell_idx, int& net_wirelength);
     void swap_into_optimal_region(void);
     void reroute_all_net();
     void reroute_cell_two_pin_net(int net_Id);
@@ -209,8 +212,9 @@ public:
     // return, 0: not find, 1 reach sink, 2 reach tree branch
     int A_star_pin2component_routing(Point source, Point sink, int NetId, std::unordered_map<Point,Point,MyHashFunction>& visited_p,
         std::unordered_map<Point, int, MyHashFunction>& component_map, Point& reach_p);
-    int tree2tree_routing(std::priority_queue<std::pair<Point,int>, std::vector<std::pair<Point,int>>, std::greater<std::pair<Point,int>>>& p_q, Point b_min, Point b_max, std::unordered_set<int>& source_comp_set,
-		std::unordered_set<int>& sink_comp_set, std::vector<std::vector<std::vector<int>>>& comp_grid_map, int NetId, 
+    int tree2tree_routing(std::priority_queue<std::pair<Point,int>, std::vector<std::pair<Point,int>>, std::greater<std::pair<Point,int>>>& p_q,
+        Point b_min, Point b_max, std::unordered_set<int>& source_comp_set, std::unordered_set<int>& sink_comp_set, 
+        std::vector<std::vector<std::vector<int>>>& comp_grid_map, std::vector<std::vector<std::vector<int>>>& cost_grid_map, int NetId, 
 		std::unordered_map<Point,Point,MyHashFunction>& visited_p, Point& reach_p);
     int check_segment_profit(Point from, Point to, int NetId);
     TwoPinNet convert_path_to_twopin(Point source, Point sink, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
@@ -218,7 +222,8 @@ public:
 		std::unordered_set<int>& source_comp_set, std::vector<std::vector<std::vector<int>>>& comp_grid_map);
 	void set_comp_grid_map(std::vector<std::vector<std::vector<int>>>& comp_grid_map, int netId, Point sink,
         std::unordered_map<Point, int, MyHashFunction>& component_map, Point box_min, Point box_max);
-    void set_all_comp_grid_map(std::vector<std::vector<std::vector<int>>>& comp_grid_map, int netId,
+    void set_all_comp_grid_map(std::vector<std::vector<std::vector<int>>>& comp_grid_map, 
+        std::vector<std::vector<std::vector<int>>>& cost_grid_map, int netId,
         std::unordered_map<Point, int, MyHashFunction>& component_map, Point box_min, Point box_max);
     void add_path_comp_in_pq(std::priority_queue<std::pair<Point,int>, std::vector<std::pair<Point,int>>, std::greater<std::pair<Point,int>>>& p_q, std::pair<Point, Point> path, int netId,
         std::unordered_map<Point,Point,MyHashFunction>& visited_p);
