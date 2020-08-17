@@ -1364,7 +1364,8 @@ bool RoutingGraph::move_cell_reroute_or_reverse(Point to_p, int cell_idx, int& n
         if(all_net_wl <= 0) routing_success = 0;
     }
     if(routing_success) {
-        movedCell.insert(cell_idx);
+        if(cell.x != cell.originalX || cell.y != cell_ori_y)
+            movedCell.insert(cell_idx);
         return 1;
     }
     else {
