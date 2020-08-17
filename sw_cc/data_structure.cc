@@ -1272,12 +1272,10 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
 }
 
 bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wirelength, int mode) {
-    unordered_map<int, int> netK;
     //cout << "\n#cell " << cell_idx << endl;
     Cell& cell = cellInstances[cell_idx];
     if(movedCell.find(cell_idx) == movedCell.end() && this->movedCell.size() >= maxCellMove) return 0;
     if(!cell.movable) return 0;
-    int cell_ori_x = cell.x, cell_ori_y = cell.y;
     vector<pair<Point,int>> cells_pos;
     bool opt_flag = 0;
     if(mode == 0)
@@ -1286,9 +1284,16 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
         opt_flag = find_force_pos(cell, cells_pos);
     if(cells_pos.size() == 0)
         return 0;
-    Point to_p(cells_pos[0].first.x,cells_pos[0].first.y,0);
     if(!opt_flag)
         return 0;
+    Point to_p(cells_pos[0].first.x,cells_pos[0].first.y,0);
+    bool success = move_cell_reroute_or_reverse(to_p, cell_idx, net_wirelength);
+    return success;
+}
+
+bool RoutingGraph::move_cell_reroute_or_reverse(Point to_p, int cell_idx, int& net_wirelength) {
+    Cell& cell = cellInstances[cell_idx];
+    int cell_ori_x = cell.x, cell_ori_y = cell.y;
     // key is net, value is tuple
     // source, sink, netId, source.node, twopin
     unordered_map<int, vector<tuple<Point,Point,int,Node,TwoPinNet>> > open_nets;
@@ -1339,6 +1344,7 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
     //cout << "#move " << cell_ori_x << " " << cell_ori_y << " to " << to_p.x << " " << to_p.y << endl;
     // test reroute
     vector<pair<Point, int>> point_nets;
+    unordered_map<int, int> netK;
     bool routing_success = connect_all_nets(open_nets, net_wirelength, netK, point_nets);
     if(routing_success) {
         for(auto& netId : net_id_pool) {

@@ -193,6 +193,7 @@ public:
     void wirelength_driven_move(int& wl_improve, int mode);
     bool swap_two_cells(int cell_idx1, int cell_idx2);
     bool move_cell_into_optimal_region(int cell_idx, int& net_wirelength, int mode);
+    bool move_cell_reroute_or_reverse(Point to_p, int cell_idx, int& net_wirelength);
     void swap_into_optimal_region(void);
     void reroute_all_net();
     void reroute_cell_two_pin_net(int net_Id);
