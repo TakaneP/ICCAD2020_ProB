@@ -1276,6 +1276,7 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
             //cout << i << " " << cellNets.size() << " " << cells_pos.size() << "\n";
             cellGains[i] += (cellNets[i] - accLength); //bigger better
             //cellGains[i] -= cell.fail_count*10;
+            cellGains[i] -= cell.fail_count*10; 
             //cellGains[i] -= (double)placement[cell.x][cell.y].size();
             //cellGains[i] -= cells_pos[0].second;
         }
@@ -1310,7 +1311,7 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
             if(success) count += 2;
         }
         if(mode != 2)
-            if(count > maxCellMove/2) return;
+            if(count > maxCellMove/10) return;
     }
 }
 
@@ -1333,8 +1334,13 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
         return 0;
     if(!opt_flag)
         return 0;
-    Point to_p(cells_pos[0].first.x,cells_pos[0].first.y,0);
-    bool success = move_cell_reroute_or_reverse(to_p, cell_idx, net_wirelength);
+    bool success = 0;
+    for(int c=0; c<cells_pos.size(); c++) {
+        if(c > 5) break;
+        Point to_p(cells_pos[c].first.x,cells_pos[c].first.y,0);
+        success = move_cell_reroute_or_reverse(to_p, cell_idx, net_wirelength);
+        if(success) break;
+    }
     cell.fail_count = (!success) ? cell.fail_count+1 : cell.fail_count;
     if(!success) {
         Point to_p(cell.x, cell.y, 0);
