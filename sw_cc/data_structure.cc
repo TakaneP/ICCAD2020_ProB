@@ -1175,8 +1175,39 @@ struct cmp_big{
     bool operator() (const double& lhs, const double& rhs) {return lhs > rhs;}
 };
 
+bool RoutingGraph::try_to_swap_into_optimal(int cellIdx, int& net_wirelength) {
+    net_wirelength = 0;
+    Cell& cell = cellInstances[cellIdx];
+    vector<pair<Point, int>> cells_pos;
+    bool opt_flag = find_optimal_pos_without_check_overflow(cell, cells_pos);
+    if(!opt_flag) return false;
+    Point p(cells_pos[0].first.x, cells_pos[0].first.y, 0);
+    unordered_set<int>& targetCells = placement[p.x][p.y];
+    map<int, unordered_set<int>, cmp_big> targetSwapPredictGain;
+    for(auto& cellIdx : targetCells) {
+        Cell& targetCell = cellInstances[cellIdx];
+        vector<pair<Point, int>> target_cells_pos;
+        bool targetOptFlag = find_optimal_pos_without_check_overflow(targetCell, target_cells_pos);
+        if(!targetOptFlag) continue;
+        Point targetP(target_cells_pos[0].first.x, target_cells_pos[0].first.y, 0);
+        int distance = (ADIFF(cell.x, targetP.x)) + (ADIFF(cell.y, targetP.y));
+        targetSwapPredictGain[distance].insert(cellIdx);
+    }
+    if(targetSwapPredictGain.empty()) return false;
+    unordered_set<int>& candidates = targetSwapPredictGain.begin()->second;
+    int selectedCell, minPin = 10000;
+    for(auto& idx : candidates) {
+        Cell& candidate = cellInstances[idx];
+        if(candidate.pins.size() < minPin) {
+            selectedCell = idx;
+            minPin = candidate.pins.size();
+        }
+    }
+    return swap_two_cells(cellIdx, selectedCell, net_wirelength);
+}
+
 void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
-    map<double, unordered_set<int>, cmp_big> bucket;
+    map<double, set<int>, cmp_big> bucket;
     vector<double> cellGains(cellInstances.size(), 0.0);
     vector<int> cellNets(cellInstances.size(), 0);
     for(auto& net : nets) {
@@ -1243,7 +1274,8 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
                 accLength += (r-l) + (u-d) + (t-b);
             }
             //cout << i << " " << cellNets.size() << " " << cells_pos.size() << "\n";
-            cellGains[i] += (cellNets[i] - accLength); //smaller better
+            cellGains[i] += (cellNets[i] - accLength); //bigger better
+            //cellGains[i] -= cell.fail_count*10;
             //cellGains[i] -= (double)placement[cell.x][cell.y].size();
             //cellGains[i] -= cells_pos[0].second;
         }
@@ -1257,7 +1289,7 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
     wl_improve = 0;
     while(!bucket.empty()) {
         //if(this->movedCell.size() >= maxCellMove) return;
-        unordered_set<int>& candidateList = bucket.begin()->second;
+        set<int>& candidateList = bucket.begin()->second;
         if(candidateList.empty()) {
             bucket.erase(bucket.begin());
             continue;
@@ -1271,6 +1303,12 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
         bool success = move_cell_into_optimal_region(candidate, wl, mode);
         wl_improve = success ? wl_improve + wl : wl_improve;
         if(success) count++;
+        else {
+            wl = 0;
+            success = try_to_swap_into_optimal(candidate, wl);
+            wl_improve = success ? wl_improve + wl : wl_improve;
+            if(success) count += 2;
+        }
         if(mode != 2)
             if(count > maxCellMove/2) return;
     }
@@ -1366,6 +1404,7 @@ bool RoutingGraph::move_cell_reroute_or_reverse(Point to_p, int cell_idx, int& n
             all_net_wl -= nets[netId].wire_length;
         }
         if(all_net_wl <= 0) routing_success = 0;
+        else net_wirelength = all_net_wl;
     }
     if(routing_success) {
         if(cell.x != cell.originalX || cell.y != cell_ori_y)
@@ -1523,6 +1562,57 @@ bool RoutingGraph::find_optimal_pos(Cell& cell, vector<pair<Point,int>>& cells_p
     return 1;
 }
 
+bool RoutingGraph::find_optimal_pos_without_check_overflow(Cell& cell, vector<pair<Point, int>>& cells_pos) {
+    if(cell.movable == 0)
+        return 0;
+    // move cell to free space
+    vector<int> x_series, y_series;
+    for(auto& pin : cell.pins) {
+        // find optimal region
+        if(pin.connectedNet == -1)
+            continue;
+        Net& neighbor_net = nets[pin.connectedNet];
+        int min_x=INT_MAX, max_x=0, min_y=INT_MAX, max_y=0;
+        bool same_flag = 0;
+        for(auto& net_pin : neighbor_net.pins) {
+            int cell_idx = net_pin.first;
+            int c_x = cellInstances[cell_idx].x;
+            int c_y = cellInstances[cell_idx].y;
+            if(c_x == cell.x && c_y == cell.y)
+                continue;
+            min_x = (min_x > c_x) ? c_x : min_x;
+            max_x = (max_x < c_x) ? c_x : max_x;
+            min_y = (min_y > c_y) ? c_y : min_y;
+            max_y = (max_y < c_y) ? c_y : max_y;
+        }
+        x_series.push_back(min_x);
+        x_series.push_back(max_x);
+        y_series.push_back(min_y);
+        y_series.push_back(max_y);
+    }
+    // no optimal region
+    if(x_series.size()==0 || y_series.size()==0) return 0;
+    sort(x_series.begin(), x_series.end());
+    sort(y_series.begin(), y_series.end());
+    // count median boundary
+    int opt_x_left = (x_series.size()%2) ? x_series[x_series.size()/2] : x_series[(x_series.size()-1)/2];
+    int opt_x_right = (x_series.size()%2) ? x_series[x_series.size()/2] : x_series[(x_series.size()-1)/2+1];
+    int opt_y_left = (y_series.size()%2) ? y_series[y_series.size()/2] : y_series[(y_series.size()-1)/2];
+    int opt_y_right = (y_series.size()%2) ? y_series[y_series.size()/2] : y_series[(y_series.size()-1)/2+1];
+    // cell already in optimal region
+    if(cell.x >= opt_x_left && cell.x <= opt_x_right && cell.y >= opt_y_left && cell.y <= opt_y_right)
+        return 0;
+    for(int x=opt_x_left; x<=opt_x_right; x++) {
+        for(int y=opt_y_left; y<=opt_y_right; y++) {
+            int profit = check_cell_cost_in_graph(x, y, cell);
+            cells_pos.emplace_back(Point(x,y,0), profit);
+        }
+    }
+    if(cells_pos.empty()) return 0;
+    sort(cells_pos.begin(), cells_pos.end(), sortbysec);
+    return 1;
+}
+
 bool RoutingGraph::find_force_pos(Cell& cell, vector<pair<Point,int>>& cells_pos) {
     if(cell.movable == 0)
         return 0;
@@ -1635,11 +1725,13 @@ int RoutingGraph::check_cell_cost_in_graph(int x, int y, Cell& cell) {
     }
     // calculate profit
     int profit = 0;
-    for(int n=0; n<layer_remain.size(); n++) {           
+    bool flag = false;
+    for(int n=0; n<layer_remain.size(); n++) {
         if(layer_remain[n] < 0 || pre_layer_remain[n] < 0 || nxt_layer_remain[n] < 0)
-            return -1;
-        profit += (layer_remain[n] + passing_net_profit[n]);
+            flag = true;
+        profit += (layer_remain[n] /*+ pre_layer_remain[n] + nxt_layer_remain[n]*/ + passing_net_profit[n]);
     }
+    if(flag && profit >= 0) return -1;
     return profit;
 }
 
@@ -2337,8 +2429,9 @@ void RoutingGraph::swap_into_optimal_region(void) {
                 for(auto _it = candidateCellPos.begin(); _it != candidateCellPos.end(); ++_it) {
                     Point& candidateOpt = _it->first;
                     if(candidateOpt.x == cell.x && candidateOpt.y == cell.y && haveSwap[{cellIdx,_cellIdx}] == false) {
-                        cout << "Cell " << cellIdx << " and Cell " << _cellIdx << " can swap\n";
-                        bool success = swap_two_cells(cellIdx, _cellIdx);
+                        //cout << "Cell " << cellIdx << " and Cell " << _cellIdx << " can swap\n";
+                        int wireLength = 0;
+                        bool success = swap_two_cells(cellIdx, _cellIdx, wireLength);
                         if(success) {
                             haveSwap[{cellIdx,_cellIdx}] = true;
                             haveSwap[{_cellIdx,cellIdx}] = true;
@@ -2350,14 +2443,14 @@ void RoutingGraph::swap_into_optimal_region(void) {
     }
 }
 
-bool RoutingGraph::swap_two_cells(int cell_idx1, int cell_idx2) {
+bool RoutingGraph::swap_two_cells(int cell_idx1, int cell_idx2, int& net_wirelength) {
     //cellIdx -> netId -> number to delete
     unordered_map<int, unordered_map<int, int>> netK;
     Cell& cell1 = cellInstances[cell_idx1];
     Cell& cell2 = cellInstances[cell_idx2];
     //printf("Cell1: %d (%d,%d) Cell2: %d (%d,%d)\n", cell_idx1, cell1.x, cell1.y, cell_idx2, cell2.x, cell2.y);
     if(cell1.x == cell2.x && cell1.y == cell2.y) return 1;
-    if(check_cell_cost_in_graph(cell2.x, cell2.y, cell1) < 0 || check_cell_cost_in_graph(cell1.x, cell1.y, cell2) < 0) return 0;
+    //if(check_cell_cost_in_graph(cell2.x, cell2.y, cell1) < 0 || check_cell_cost_in_graph(cell1.x, cell1.y, cell2) < 0) return 0;
     for(auto& pin : cell1.pins) {
         if(pin.connectedNet == -1) continue;
         Net& net = nets[pin.connectedNet];
@@ -2378,11 +2471,13 @@ bool RoutingGraph::swap_two_cells(int cell_idx1, int cell_idx2) {
     unordered_set<int> updated_branchs;
     unordered_map<int, map<tuple<int, int, int, int, int, int>, bool>> alreadyInOpenNets;
     int net_wirelength1 = 0, net_wirelength2 = 0;
+    unordered_set<int> net_id_pool;
     //cout << "Cell: " << cell_idx << endl;
     for(auto& pin : cell1.pins) {
         if(pin.connectedNet == -1)
             continue;
         auto& net = nets[pin.connectedNet];
+        net_id_pool.insert(net.netId);
         // copy branch_node for reverse
         if(branchs_copy.find(pin.connectedNet) == branchs_copy.end())
             branchs_copy[pin.connectedNet] = net.branch_nodes;
@@ -2413,6 +2508,7 @@ bool RoutingGraph::swap_two_cells(int cell_idx1, int cell_idx2) {
     for(auto& pin : cell2.pins) {
         if(pin.connectedNet == -1) continue;
         Net& net = nets[pin.connectedNet];
+        net_id_pool.insert(net.netId);
         if(branchs_copy.find(pin.connectedNet) == branchs_copy.end()) branchs_copy[pin.connectedNet] = net.branch_nodes;
         Point cell_p(cell2.x, cell2.y, pin.layer);
         unordered_set<Point, MyHashFunction> used_local_node;
@@ -2436,6 +2532,11 @@ bool RoutingGraph::swap_two_cells(int cell_idx1, int cell_idx2) {
             alreadyInOpenNets[net.netId][{cell1.x,cell1.y,pin.layer,cell2OriX, cell2OriY, pin.layer}] = true;
         }
     }
+    int all_net_wl = 0;
+    for(auto& netId : net_id_pool) {
+        nets[netId].update_wirelength();
+        all_net_wl += nets[netId].wire_length;
+    }
     del_cell_neighbor(cell_idx1);
     del_cell_neighbor(cell_idx2);
     add_cell(cell2OriX, cell2OriY, cell_idx1);
@@ -2444,14 +2545,66 @@ bool RoutingGraph::swap_two_cells(int cell_idx1, int cell_idx2) {
     bool routing_success1 = connect_all_nets(open_nets1, net_wirelength1, netK[cell_idx1], point_nets1);
     bool routing_success2 = connect_all_nets(open_nets2, net_wirelength2, netK[cell_idx2], point_nets2);
     if(routing_success1 && routing_success2) {
+        for(auto& netId : net_id_pool) {
+            nets[netId].update_wirelength();
+            all_net_wl -= nets[netId].wire_length;
+        }
+        if(all_net_wl <= 0) routing_success1 = 0;
+        else net_wirelength = all_net_wl;
+        for(int i = 0; i < layer; ++i) {
+            if(grids[cell1OriX][cell1OriY][i].get_remaining() < 0) {
+                routing_success1 = 0;
+                break;
+            }
+        }
+        for(int i = 0; i < layer; ++i) {
+            if(grids[cell2OriX][cell2OriY][i].get_remaining() < 0) {
+                routing_success1 = 0;
+                break;
+            }
+        }
+        if(cell1OriY > 0) {
+            for(int i = 0; i < layer; ++i) {
+                if(grids[cell1OriX][cell1OriY-1][i].get_remaining() < 0) {
+                    routing_success1 = 0;
+                    break;
+                }
+            }
+        }
+        if(cell1OriY < (column-1)) {
+            for(int i = 0; i < layer; ++i) {
+                if(grids[cell1OriX][cell1OriY+1][i].get_remaining() < 0) {
+                    routing_success1 = 0;
+                    break;
+                }
+            }
+        }
+        if(cell2OriY > 0) {
+            for(int i = 0; i < layer; ++i) {
+                if(grids[cell2OriX][cell2OriY-1][i].get_remaining() < 0) {
+                    routing_success1 = 0;
+                    break;
+                }
+            }
+        }
+        if(cell2OriY < (column-1)) {
+            for(int i = 0; i < layer; ++i) {
+                if(grids[cell2OriX][cell2OriY+1][i].get_remaining() < 0) {
+                    routing_success1 = 0;
+                    break;
+                }
+            }
+        }
+    }
+    if(routing_success1 && routing_success2) {
         movedCell.insert(cell_idx1);
         movedCell.insert(cell_idx2);
         return 1;
     }
     else {
+        net_wirelength = 0;
         // reverse original net
         //del_cell_last_k_neighbor(cell_idx, netK);
-        for(auto it = point_nets1.begin(); it != point_nets1.end(); ++it) cout << it->first << " " << it->second << "\n";
         del_cell_point_net(cell_idx1, point_nets1);
         del_cell_point_net(cell_idx2, point_nets2);
         if(cell1OriX == cell1.originalX && cell1OriY == cell1.originalY)
