@@ -1171,8 +1171,12 @@ bool sortbysec(const pair<Point,int> &a, const pair<Point,int> &b)
     return (a.second > b.second); 
 } 
 
+struct cmp_big{
+    bool operator() (const double& lhs, const double& rhs) {return lhs > rhs;}
+};
+
 void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
-    map<double, unordered_set<int>> bucket;
+    map<double, unordered_set<int>, cmp_big> bucket;
     vector<double> cellGains(cellInstances.size(), 0.0);
     vector<int> cellNets(cellInstances.size(), 0);
     for(auto& net : nets) {
@@ -1239,7 +1243,7 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
                 accLength += (r-l) + (u-d) + (t-b);
             }
             //cout << i << " " << cellNets.size() << " " << cells_pos.size() << "\n";
-            cellGains[i] += (accLength - cellNets[i]); //smaller better
+            cellGains[i] += (cellNets[i] - accLength); //smaller better
             //cellGains[i] -= (double)placement[cell.x][cell.y].size();
             //cellGains[i] -= cells_pos[0].second;
         }
