@@ -1175,32 +1175,89 @@ struct cmp_big{
     bool operator() (const double& lhs, const double& rhs) {return lhs > rhs;}
 };
 
-bool RoutingGraph::try_to_swap_into_optimal(int cellIdx, int& net_wirelength) {
+bool RoutingGraph::try_to_swap_into_force(int cellIdx, int& net_wirelength) {
     net_wirelength = 0;
     Cell& cell = cellInstances[cellIdx];
     vector<pair<Point, int>> cells_pos;
-    bool opt_flag = find_optimal_pos_without_check_overflow(cell, cells_pos);
+    bool opt_flag = find_force_pos_without_check_overflow(cell, cells_pos);
     if(!opt_flag) return false;
-    Point p(cells_pos[0].first.x, cells_pos[0].first.y, 0);
-    unordered_set<int>& targetCells = placement[p.x][p.y];
+    //Point p(cells_pos[0].first.x, cells_pos[0].first.y, 0);
+    //unordered_set<int>& targetCells = placement[p.x][p.y];
+    unordered_set<int> targetCells;
+    for(int i = 0; i < cells_pos.size(); i++) {
+        if(i == 3) break;
+        Point p(cells_pos[i].first.x, cells_pos[i].first.y, 0);
+        unordered_set<int>& placedCells = placement[p.x][p.y];
+        for(const int& idx : placedCells) targetCells.insert(idx);
+    }
     map<int, unordered_set<int>, cmp_big> targetSwapPredictGain;
     for(auto& cellIdx : targetCells) {
         Cell& targetCell = cellInstances[cellIdx];
         vector<pair<Point, int>> target_cells_pos;
         bool targetOptFlag = find_optimal_pos_without_check_overflow(targetCell, target_cells_pos);
         if(!targetOptFlag) continue;
-        Point targetP(target_cells_pos[0].first.x, target_cells_pos[0].first.y, 0);
-        int distance = (ADIFF(cell.x, targetP.x)) + (ADIFF(cell.y, targetP.y));
-        targetSwapPredictGain[distance].insert(cellIdx);
+        //Point targetP(target_cells_pos[0].first.x, target_cells_pos[0].first.y, 0);
+        for(int i = 0; i < target_cells_pos.size(); ++i) {
+            if(i == 3) break;
+            Point targetP(target_cells_pos[i].first.x, target_cells_pos[i].first.y, 0);
+            int distance = (ADIFF(cell.x, targetP.x)) + (ADIFF(cell.y, targetP.y));
+            targetSwapPredictGain[distance].insert(cellIdx);
+        }
+        //int distance = (ADIFF(cell.x, targetP.x)) + (ADIFF(cell.y, targetP.y));
+        //targetSwapPredictGain[distance].insert(cellIdx);
     }
     if(targetSwapPredictGain.empty()) return false;
     unordered_set<int>& candidates = targetSwapPredictGain.begin()->second;
-    int selectedCell, minPin = 10000;
+    int selectedCell, maxPin = 0;
     for(auto& idx : candidates) {
         Cell& candidate = cellInstances[idx];
-        if(candidate.pins.size() < minPin) {
+        if(candidate.pins.size() > maxPin) {
             selectedCell = idx;
-            minPin = candidate.pins.size();
+            maxPin = candidate.pins.size();
+        }
+    }
+    return swap_two_cells(cellIdx, selectedCell, net_wirelength);
+}
+
+bool RoutingGraph::try_to_swap_into_optimal(int cellIdx, int& net_wirelength) {
+    net_wirelength = 0;
+    Cell& cell = cellInstances[cellIdx];
+    vector<pair<Point, int>> cells_pos;
+    bool opt_flag = find_optimal_pos_without_check_overflow(cell, cells_pos);
+    if(!opt_flag) return false;
+    //Point p(cells_pos[0].first.x, cells_pos[0].first.y, 0);
+    //unordered_set<int>& targetCells = placement[p.x][p.y];
+    unordered_set<int> targetCells;
+    for(int i = 0; i < cells_pos.size(); i++) {
+        if(i == 3) break;
+        Point p(cells_pos[i].first.x, cells_pos[i].first.y, 0);
+        unordered_set<int>& placedCells = placement[p.x][p.y];
+        for(const int& idx : placedCells) targetCells.insert(idx);
+    }
+    map<int, unordered_set<int>, cmp_big> targetSwapPredictGain;
+    for(auto& cellIdx : targetCells) {
+        Cell& targetCell = cellInstances[cellIdx];
+        vector<pair<Point, int>> target_cells_pos;
+        bool targetOptFlag = find_optimal_pos_without_check_overflow(targetCell, target_cells_pos);
+        if(!targetOptFlag) continue;
+        //Point targetP(target_cells_pos[0].first.x, target_cells_pos[0].first.y, 0);
+        for(int i = 0; i < target_cells_pos.size(); ++i) {
+            if(i == 3) break;
+            Point targetP(target_cells_pos[i].first.x, target_cells_pos[i].first.y, 0);
+            int distance = (ADIFF(cell.x, targetP.x)) + (ADIFF(cell.y, targetP.y));
+            targetSwapPredictGain[distance].insert(cellIdx);
+        }
+        //int distance = (ADIFF(cell.x, targetP.x)) + (ADIFF(cell.y, targetP.y));
+        //targetSwapPredictGain[distance].insert(cellIdx);
+    }
+    if(targetSwapPredictGain.empty()) return false;
+    unordered_set<int>& candidates = targetSwapPredictGain.begin()->second;
+    int selectedCell, maxPin = 0;
+    for(auto& idx : candidates) {
+        Cell& candidate = cellInstances[idx];
+        if(candidate.pins.size() > maxPin) {
+            selectedCell = idx;
+            maxPin = candidate.pins.size();
         }
     }
     return swap_two_cells(cellIdx, selectedCell, net_wirelength);
@@ -1278,7 +1335,7 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
             //cellGains[i] -= cell.fail_count*10;
             cellGains[i] -= cell.fail_count*10; 
             //cellGains[i] -= (double)placement[cell.x][cell.y].size();
-            //cellGains[i] -= cells_pos[0].second;
+            cellGains[i] += cells_pos[0].second;
         }
     }
 
@@ -1303,13 +1360,20 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
         int wl=0;
         bool success = move_cell_into_optimal_region(candidate, wl, mode);
         wl_improve = success ? wl_improve + wl : wl_improve;
-        if(success) count++;
-        else {
+        if(success)
+            count++;
+        else if(mode == 0 && count < maxCellMove/20) {
             wl = 0;
             success = try_to_swap_into_optimal(candidate, wl);
             wl_improve = success ? wl_improve + wl : wl_improve;
-            if(success) count += 2;
+            if(success) count++;
         }
+        /*else if(mode == 1 && count < maxCellMove/20) {
+            wl = 0;
+            success = try_to_swap_into_force(candidate, wl);
+            wl_improve = success ? wl_improve + wl : wl_improve;
+            if(success) count++;
+        }*/
         if(mode != 2)
             if(count > maxCellMove/10) return;
     }
@@ -1610,7 +1674,7 @@ bool RoutingGraph::find_optimal_pos_without_check_overflow(Cell& cell, vector<pa
         return 0;
     for(int x=opt_x_left; x<=opt_x_right; x++) {
         for(int y=opt_y_left; y<=opt_y_right; y++) {
-            int profit = check_cell_cost_in_graph(x, y, cell);
+            int profit = calculate_profit_without_check_overflow(x, y, cell);
             cells_pos.emplace_back(Point(x,y,0), profit);
         }
     }
@@ -1661,7 +1725,128 @@ bool RoutingGraph::find_force_pos(Cell& cell, vector<pair<Point,int>>& cells_pos
     return 1;
 }
 
+bool RoutingGraph::find_force_pos_without_check_overflow(Cell& cell, vector<pair<Point, int>>& cells_pos) {
+    if(cell.movable == 0)
+        return 0;
+    // move cell to free space
+    vector<int> x_series, y_series;
+    for(auto& pin : cell.pins) {
+        // find optimal region
+        if(pin.connectedNet == -1)
+            continue;
+        Net& net = nets[pin.connectedNet];
+        Point p(cell.x, cell.y, pin.layer);
+        if(net.branch_nodes.find(p) == net.branch_nodes.end())
+            continue;
+        for(auto& neighbor : net.branch_nodes[p].neighbors) {
+            x_series.push_back(neighbor.first.x);
+            y_series.push_back(neighbor.first.y);
+        }
+    }
+    // no optimal region
+    if(x_series.size()==0 || y_series.size()==0) return 0;
+    sort(x_series.begin(), x_series.end());
+    sort(y_series.begin(), y_series.end());
+    // count median boundary
+    int opt_x_left = (x_series.size()%2) ? x_series[x_series.size()/2] : x_series[(x_series.size()-1)/2];
+    int opt_x_right = (x_series.size()%2) ? x_series[x_series.size()/2] : x_series[(x_series.size()-1)/2+1];
+    int opt_y_left = (y_series.size()%2) ? y_series[y_series.size()/2] : y_series[(y_series.size()-1)/2];
+    int opt_y_right = (y_series.size()%2) ? y_series[y_series.size()/2] : y_series[(y_series.size()-1)/2+1];
+    // cell already in optimal region
+    if(cell.x >= opt_x_left && cell.x <= opt_x_right && cell.y >= opt_y_left && cell.y <= opt_y_right)
+        return 0;
+    for(int x=opt_x_left; x<=opt_x_right; x++) {
+        for(int y=opt_y_left; y<=opt_y_right; y++) {
+            int profit = calculate_profit_without_check_overflow(x, y, cell);
+            if(profit > 0)
+                cells_pos.emplace_back(Point(x,y,0), profit);
+        }
+    }
+    if(cells_pos.empty()) return 0;
+    sort(cells_pos.begin(), cells_pos.end(), sortbysec);
+    return 1;
+
+}
+
 int RoutingGraph::check_cell_cost_in_graph(int x, int y, Cell& cell) {
+    int MCtype = cell.mcType;
+    vector<int> layer_remain(layer), passing_net_profit(layer,0), pre_layer_remain(layer, 0), nxt_layer_remain(layer, 0);
+    vector<unordered_set<int>> numberOfNetsOnLayer(layer);
+    MasterCell& masterCell = masterCells[MCtype];
+    for(auto& pin : cell.pins) {
+        int netIndex = pin.connectedNet;
+        if(netIndex == -1) continue;
+        if(pin.pseudo) {
+            for(int i = pin.actualPinLayer; i <= pin.layer; ++i) {
+                auto pos = grids[x][y][i].passingNets.find(netIndex);
+                if(pos == grids[x][y][i].passingNets.end() || pos->second == 0)
+                    numberOfNetsOnLayer[i].insert(netIndex);
+            }
+        }
+        else {
+            auto pos = grids[x][y][pin.layer].passingNets.find(netIndex);
+            if(pos == grids[x][y][pin.layer].passingNets.end() || pos->second == 0)
+                numberOfNetsOnLayer[pin.layer].insert(netIndex);
+        }
+    }
+
+    // initial remain
+    for(int n=0; n<layer_remain.size(); n++) {
+        layer_remain[n] = grids[x][y][n].capacity - grids[x][y][n].demand - numberOfNetsOnLayer[n].size();
+        if(y > 0) pre_layer_remain[n] = grids[x][y-1][n].capacity - grids[x][y-1][n].demand;
+        if(y < (column-1)) nxt_layer_remain[n] = grids[x][y+1][n].capacity - grids[x][y+1][n].demand;
+    }
+    // calculate locate at passing net benifit
+    for(auto& pin : cell.pins) {
+        int& p_layer = pin.layer;
+        int& p_net_id = pin.connectedNet;
+        if(grids[x][y][p_layer].passingNets.find(p_net_id) != grids[x][y][p_layer].passingNets.end())
+            passing_net_profit[p_layer] += 50;
+    }
+    // add blockage demand
+    for(auto it = masterCell.blockages.begin(); it != masterCell.blockages.end(); ++it) {
+        layer_remain[it->first] -= it->second;
+    }
+    // Add sameGGrid rule
+    for(auto it = sameGGrid[MCtype].begin(); it != sameGGrid[MCtype].end(); ++it) {
+        int MCtype2 = it->first;
+        int originalPairCnt = min(cellCount[x][y][MCtype], cellCount[x][y][MCtype2]);
+        int afterPairCnt = min(cellCount[x][y][MCtype] + 1, cellCount[x][y][MCtype2]);
+        for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
+            layer_remain[_it->first] -= _it->second * (afterPairCnt - originalPairCnt);
+        }	
+    }
+    // Add adjHGGrid rule
+    for(auto it = adjHGGrid[MCtype].begin(); it != adjHGGrid[MCtype].end(); ++it) {
+        int MCtype2 = it->first, preOriginalPairCnt = 0, preAfterPairCnt = 0, nxtOriginalPairCnt = 0, nxtAfterPairCnt = 0;
+        // check left cell demand
+        if(y > 0) {
+            preOriginalPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype]);
+            preAfterPairCnt = min(cellCount[x][y-1][MCtype2], cellCount[x][y][MCtype] + 1);
+        }
+        // check right cell demand
+        if(y < (column - 1)) {
+            nxtOriginalPairCnt = min(cellCount[x][y+1][MCtype2], cellCount[x][y][MCtype]);
+            nxtAfterPairCnt = min(cellCount[x][y+1][MCtype2], cellCount[x][y][MCtype] + 1);
+        }
+        // Update current
+        for(auto _it = it->second.begin(); _it != it->second.end(); ++_it) {
+            pre_layer_remain[_it->first] -= _it->second * (preAfterPairCnt - preOriginalPairCnt);
+            layer_remain[_it->first] -= _it->second * (preAfterPairCnt - preOriginalPairCnt + nxtAfterPairCnt - nxtOriginalPairCnt);
+            nxt_layer_remain[_it->first] -= _it->second * (nxtAfterPairCnt - nxtOriginalPairCnt);
+        }
+    }
+    // calculate profit
+    int profit = 0;
+    for(int n=0; n<layer_remain.size(); n++) {
+        if(layer_remain[n] < 0 || pre_layer_remain[n] < 0 || nxt_layer_remain[n] < 0)
+            return -1;
+        profit += (layer_remain[n] + passing_net_profit[n]);
+    }
+    return profit;
+}
+
+int RoutingGraph::calculate_profit_without_check_overflow(int x, int y, Cell& cell) {
     int MCtype = cell.mcType;
     vector<int> layer_remain(layer), passing_net_profit(layer,0), pre_layer_remain(layer, 0), nxt_layer_remain(layer, 0);
     vector<unordered_set<int>> numberOfNetsOnLayer(layer);
@@ -1735,9 +1920,9 @@ int RoutingGraph::check_cell_cost_in_graph(int x, int y, Cell& cell) {
     for(int n=0; n<layer_remain.size(); n++) {
         if(layer_remain[n] < 0 || pre_layer_remain[n] < 0 || nxt_layer_remain[n] < 0)
             flag = true;
-        profit += (layer_remain[n] /*+ pre_layer_remain[n] + nxt_layer_remain[n]*/ + passing_net_profit[n]);
+        profit += (layer_remain[n] + passing_net_profit[n]);
     }
-    if(flag && profit >= 0) return -1;
+    if(flag && profit > 0) return -1;
     return profit;
 }
 

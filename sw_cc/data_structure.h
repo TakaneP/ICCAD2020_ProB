@@ -207,13 +207,16 @@ public:
     bool move_cell_reroute_or_reverse(Point to_p, int cell_idx, int& net_wirelength);
     void swap_into_optimal_region(void);
     bool try_to_swap_into_optimal(int cellIdx, int& net_wirelength);
+    bool try_to_swap_into_force(int cellIdx, int& net_wirelength);
     bool find_optimal_pos_without_check_overflow(Cell& cell, std::vector<std::pair<Point, int>>& cells_pos);
+    bool find_force_pos_without_check_overflow(Cell& cell, std::vector<std::pair<Point,int>>& cells_pos);
     void reroute_all_net();
     void reroute_cell_two_pin_net(int net_Id);
     bool find_optimal_pos(Cell& cell, std::vector<std::pair<Point,int>>& cells_pos);
     bool find_force_pos(Cell& cell, std::vector<std::pair<Point,int>>& cells_pos);
     // return cell profit after put in cell
     int check_cell_cost_in_graph(int x, int y, Cell& cell);
+    int calculate_profit_without_check_overflow(int x, int y, Cell& cell);
     int Z_shape_routing(Point source, Point sink, int NetId);
     void add_component_in_pq(std::priority_queue<std::pair<Point,int>, std::vector<std::pair<Point,int>>, std::greater<std::pair<Point,int>>>& p_q, int source_comp, 
         std::unordered_map<Point, int, MyHashFunction>& component_map, int netId, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
