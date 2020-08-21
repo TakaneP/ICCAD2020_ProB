@@ -16,6 +16,15 @@ struct TwoPinNet;
 
 TwoPinNet two_pin_reverse(TwoPinNet two_pin);
 
+struct BoundingBox{
+    BoundingBox(void): up(-1), down(2001), left(2001), right(-1), top(-1), bottom(33) {}
+    int up, down, left, right, top, bottom; //up x, down x, left y, right y, top z, bottom z
+    void set_x(const int value) {up = max(value, up); down = min(value, down);}
+    void set_y(const int value) {right = max(value, right); left = min(value, left);}
+    void set_z(const int value) {top = max(value, top); bottom = min(value, bottom);}
+    int get_hpwl(void) {return (up - down) + (right - left) + (top - bottom);}
+};
+
 struct Pin{
     Pin(): layer(-1), connectedNet(-1), pseudo(0) {}
     Pin(int l): layer(l), connectedNet(-1), pseudo(0) {}
@@ -193,16 +202,21 @@ public:
     void construct_2pin_nets();
     // mode 0: optimal region, mode 1: force
     void wirelength_driven_move(int& wl_improve, int mode);
-    bool swap_two_cells(int cell_idx1, int cell_idx2);
+    bool swap_two_cells(int cell_idx1, int cell_idx2, int& net_wirelength);
     bool move_cell_into_optimal_region(int cell_idx, int& net_wirelength, int mode);
     bool move_cell_reroute_or_reverse(Point to_p, int cell_idx, int& net_wirelength);
     void swap_into_optimal_region(void);
+    bool try_to_swap_into_optimal(int cellIdx, int& net_wirelength);
+    bool try_to_swap_into_force(int cellIdx, int& net_wirelength);
+    bool find_optimal_pos_without_check_overflow(Cell& cell, std::vector<std::pair<Point, int>>& cells_pos);
+    bool find_force_pos_without_check_overflow(Cell& cell, std::vector<std::pair<Point,int>>& cells_pos);
     void reroute_all_net();
     void reroute_cell_two_pin_net(int net_Id);
     bool find_optimal_pos(Cell& cell, std::vector<std::pair<Point,int>>& cells_pos);
     bool find_force_pos(Cell& cell, std::vector<std::pair<Point,int>>& cells_pos);
     // return cell profit after put in cell
     int check_cell_cost_in_graph(int x, int y, Cell& cell);
+    int calculate_profit_without_check_overflow(int x, int y, Cell& cell);
     int Z_shape_routing(Point source, Point sink, int NetId);
     void add_component_in_pq(std::priority_queue<std::pair<Point,int>, std::vector<std::pair<Point,int>>, std::greater<std::pair<Point,int>>>& p_q, int source_comp, 
         std::unordered_map<Point, int, MyHashFunction>& component_map, int netId, std::unordered_map<Point,Point,MyHashFunction>& visited_p);
