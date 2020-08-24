@@ -1,6 +1,7 @@
 #include<bits/stdc++.h>
 #include "data_structure.h"
 #include "segment_tree.h"
+#include "global_parameter.h"
 
 using namespace std;
 
@@ -701,7 +702,15 @@ void Net::set_point_component(unordered_map<Point, int, MyHashFunction>& compone
     }
 }
 
-RoutingGraph::RoutingGraph(): usedCellMove(0) {segmentTree = new SegmentTree(*this);}
+RoutingGraph::RoutingGraph(): usedCellMove(0) {
+    segmentTree = new SegmentTree(*this);
+}
+
+RoutingGraph::RoutingGraph(random_device& rd): usedCellMove(0) {
+    gen = default_random_engine(rd());
+    dis = uniform_real_distribution<>(0.0,1.0);
+    segmentTree = new SegmentTree(*this);
+}
 RoutingGraph::~RoutingGraph() {delete segmentTree;}
 
 void RoutingGraph::add_cell_demand_into_graph(int x, int y, int MCtype) {
@@ -1185,7 +1194,7 @@ bool RoutingGraph::try_to_swap_into_force(int cellIdx, int& net_wirelength) {
     //unordered_set<int>& targetCells = placement[p.x][p.y];
     unordered_set<int> targetCells;
     for(int i = 0; i < cells_pos.size(); i++) {
-        if(i == 3) break;
+        if(i == swapArea) break;
         Point p(cells_pos[i].first.x, cells_pos[i].first.y, 0);
         unordered_set<int>& placedCells = placement[p.x][p.y];
         for(const int& idx : placedCells) targetCells.insert(idx);
@@ -1198,7 +1207,7 @@ bool RoutingGraph::try_to_swap_into_force(int cellIdx, int& net_wirelength) {
         if(!targetOptFlag) continue;
         //Point targetP(target_cells_pos[0].first.x, target_cells_pos[0].first.y, 0);
         for(int i = 0; i < target_cells_pos.size(); ++i) {
-            if(i == 3) break;
+            if(i == swapArea) break;
             Point targetP(target_cells_pos[i].first.x, target_cells_pos[i].first.y, 0);
             int distance = (ADIFF(cell.x, targetP.x)) + (ADIFF(cell.y, targetP.y));
             targetSwapPredictGain[distance].insert(cellIdx);
@@ -1229,7 +1238,7 @@ bool RoutingGraph::try_to_swap_into_optimal(int cellIdx, int& net_wirelength) {
     //unordered_set<int>& targetCells = placement[p.x][p.y];
     unordered_set<int> targetCells;
     for(int i = 0; i < cells_pos.size(); i++) {
-        if(i == 3) break;
+        if(i == swapArea) break;
         Point p(cells_pos[i].first.x, cells_pos[i].first.y, 0);
         unordered_set<int>& placedCells = placement[p.x][p.y];
         for(const int& idx : placedCells) targetCells.insert(idx);
@@ -1242,7 +1251,7 @@ bool RoutingGraph::try_to_swap_into_optimal(int cellIdx, int& net_wirelength) {
         if(!targetOptFlag) continue;
         //Point targetP(target_cells_pos[0].first.x, target_cells_pos[0].first.y, 0);
         for(int i = 0; i < target_cells_pos.size(); ++i) {
-            if(i == 3) break;
+            if(i == swapArea) break;
             Point targetP(target_cells_pos[i].first.x, target_cells_pos[i].first.y, 0);
             int distance = (ADIFF(cell.x, targetP.x)) + (ADIFF(cell.y, targetP.y));
             targetSwapPredictGain[distance].insert(cellIdx);
@@ -1263,7 +1272,7 @@ bool RoutingGraph::try_to_swap_into_optimal(int cellIdx, int& net_wirelength) {
     return swap_two_cells(cellIdx, selectedCell, net_wirelength);
 }
 
-void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
+void RoutingGraph::wirelength_driven_move(int& wl_improve) {
     map<double, set<int>, cmp_big> bucket;
     vector<double> cellGains(cellInstances.size(), 0.0);
     vector<int> cellNets(cellInstances.size(), 0);
@@ -1333,9 +1342,9 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
             //cout << i << " " << cellNets.size() << " " << cells_pos.size() << "\n";
             cellGains[i] += (cellNets[i] - accLength); //bigger better
             //cellGains[i] -= cell.fail_count*10;
-            cellGains[i] -= cell.fail_count*10; 
+            cellGains[i] -= cell.fail_count*failPenalty;
             //cellGains[i] -= (double)placement[cell.x][cell.y].size();
-            cellGains[i] += cells_pos[0].second;
+            cellGains[i] += cells_pos[0].second/layerNormalize;
         }
     }
 
@@ -1358,11 +1367,11 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
         if(candidateList.empty())
             bucket.erase(bucket.begin());
         int wl=0;
-        bool success = move_cell_into_optimal_region(candidate, wl, mode);
+        bool success = move_cell_into_optimal_region(candidate, wl);
         wl_improve = success ? wl_improve + wl : wl_improve;
         if(success)
             count++;
-        else if(mode == 0 && count < maxCellMove/20) {
+        else if(mode == 0 && count < maxCellMove/(topK*2)) {
             wl = 0;
             success = try_to_swap_into_optimal(candidate, wl);
             wl_improve = success ? wl_improve + wl : wl_improve;
@@ -1375,11 +1384,11 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve, int mode) {
             if(success) count++;
         }*/
         if(mode != 2)
-            if(count > maxCellMove/10) return;
+            if(count > maxCellMove/topK) return;
     }
 }
 
-bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wirelength, int mode) {
+bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wirelength) {
     //cout << "\n#cell " << cell_idx << endl;
     Cell& cell = cellInstances[cell_idx];
     if(movedCell.find(cell_idx) == movedCell.end() && this->movedCell.size() >= maxCellMove) return 0;
@@ -1400,7 +1409,7 @@ bool RoutingGraph::move_cell_into_optimal_region(int cell_idx, int& net_wireleng
         return 0;
     bool success = 0;
     for(int c=0; c<cells_pos.size(); c++) {
-        if(c > 5) break;
+        if(c > moveArea) break;
         Point to_p(cells_pos[c].first.x,cells_pos[c].first.y,0);
         success = move_cell_reroute_or_reverse(to_p, cell_idx, net_wirelength);
         if(success) break;
@@ -1473,7 +1482,17 @@ bool RoutingGraph::move_cell_reroute_or_reverse(Point to_p, int cell_idx, int& n
             nets[netId].update_wirelength();
             all_net_wl -= nets[netId].wire_length;
         }
-        if(all_net_wl <= 0) routing_success = 0;
+        if(all_net_wl <= 0 /*&& mode == 2*/) routing_success = 0;
+        /*else if(all_net_wl <= 0) {
+            double exponent = (double)(all_net_wl*1000-100)/temperature;
+            exponent = exp(exponent);
+            double prob = dis(gen);
+            //cout << prob << " " << exponent << "\n";
+            if(prob > exponent) {
+                routing_success = 0;
+            }
+            else net_wirelength = all_net_wl;
+        }*/
         else net_wirelength = all_net_wl;
     }
     if(routing_success) {
@@ -2641,6 +2660,9 @@ bool RoutingGraph::swap_two_cells(int cell_idx1, int cell_idx2, int& net_wirelen
     Cell& cell2 = cellInstances[cell_idx2];
     //printf("Cell1: %d (%d,%d) Cell2: %d (%d,%d)\n", cell_idx1, cell1.x, cell1.y, cell_idx2, cell2.x, cell2.y);
     if(cell1.x == cell2.x && cell1.y == cell2.y) return 1;
+    int cell1Exist = (movedCell.find(cell_idx1) == movedCell.end())? 1:0;
+    int cell2Exist = (movedCell.find(cell_idx2) == movedCell.end())? 1:0;
+    if((movedCell.size() + cell1Exist + cell2Exist) > maxCellMove) return 0;
     //if(check_cell_cost_in_graph(cell2.x, cell2.y, cell1) < 0 || check_cell_cost_in_graph(cell1.x, cell1.y, cell2) < 0) return 0;
     for(auto& pin : cell1.pins) {
         if(pin.connectedNet == -1) continue;

@@ -191,6 +191,7 @@ struct Gcell{
 class RoutingGraph{
 public:
     RoutingGraph();
+    RoutingGraph(std::random_device&);
     ~RoutingGraph();
     void add_cell(int x, int y, int cellIndex);
     void del_cell(int cellIndex);
@@ -201,9 +202,9 @@ public:
     void del_cell_point_net(int cellIndex, std::vector<std::pair<Point, int>>& point_nets);
     void construct_2pin_nets();
     // mode 0: optimal region, mode 1: force
-    void wirelength_driven_move(int& wl_improve, int mode);
+    void wirelength_driven_move(int& wl_improve);
     bool swap_two_cells(int cell_idx1, int cell_idx2, int& net_wirelength);
-    bool move_cell_into_optimal_region(int cell_idx, int& net_wirelength, int mode);
+    bool move_cell_into_optimal_region(int cell_idx, int& net_wirelength);
     bool move_cell_reroute_or_reverse(Point to_p, int cell_idx, int& net_wirelength);
     void swap_into_optimal_region(void);
     bool try_to_swap_into_optimal(int cellIdx, int& net_wirelength);
@@ -258,6 +259,8 @@ public:
     std::unordered_map<int, std::unordered_map<int, std::unordered_map<int, int>>> sameGGrid;
     std::unordered_map<int, std::unordered_map<int, std::unordered_map<int, int>>> adjHGGrid;
     std::unordered_set<int> movedCell; //moved cells
+    std::default_random_engine gen;
+    std::uniform_real_distribution<> dis;
 };
 
 #endif
