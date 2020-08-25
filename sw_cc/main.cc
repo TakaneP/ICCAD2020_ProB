@@ -141,7 +141,7 @@ int main(int argc, char* argv[])
         }
         end = time(NULL);
         diff = difftime(end, start);
-        cout << currentWL << " " << 3600-diff << " " << firstRoundTime << endl;
+        //cout << currentWL << " " << 3600-diff << " " << firstRoundTime << endl;
         if((3600 - diff) <= firstRoundTime*2.0) break;
         if(case1 || case2) return 0;
         delete routingGraph;
