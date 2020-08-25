@@ -2107,7 +2107,8 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x+1][local_p.y][local_p.z];
-            int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
+            int future_cost = cost + 1;
+            //int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost) {    
                 p_q.emplace(new_p, future_cost);
                 past_cost = future_cost;
@@ -2124,7 +2125,8 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x-1][local_p.y][local_p.z];
-            int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
+            int future_cost = cost + 1;
+            //int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost) {       
                 p_q.emplace(new_p, future_cost);
                 past_cost = future_cost;
@@ -2141,7 +2143,8 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x][local_p.y+1][local_p.z];
-            int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
+            int future_cost = cost + 1;
+            //int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost) {       
                 p_q.emplace(new_p, future_cost);
                 past_cost = future_cost;
@@ -2158,7 +2161,8 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x][local_p.y-1][local_p.z];
-            int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
+            int future_cost = cost + 1;
+            //int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost) {       
                 p_q.emplace(new_p, future_cost);
                 past_cost = future_cost;
@@ -2175,7 +2179,8 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x][local_p.y][local_p.z+1];
-            int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
+            int future_cost = cost + 1;
+            //int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost + via_cost) {       
                 p_q.emplace(new_p, future_cost + via_cost);
                 past_cost = future_cost+via_cost;
@@ -2192,6 +2197,7 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x][local_p.y][local_p.z-1];
+            //int future_cost = cost + 1;
             int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost + via_cost) {       
                 p_q.emplace(new_p, future_cost + via_cost);
