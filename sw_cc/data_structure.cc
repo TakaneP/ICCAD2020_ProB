@@ -1184,6 +1184,58 @@ struct cmp_big{
     bool operator() (const double& lhs, const double& rhs) {return lhs > rhs;}
 };
 
+bool RoutingGraph::try_to_ripple_move_into_optimal(int cellIdx, int& net_wirelength, vector<double>& cellGains) {
+    net_wirelength = 0;
+    Cell& cell = cellInstances[cellIdx];
+    vector<pair<Point, int>> cells_pos;
+    bool opt_flag = find_optimal_pos_without_check_overflow(cell, cells_pos);
+    if(!opt_flag) return false;
+    int selectedCell;
+    double maxGain = -10000;
+    for(int i = 0; i < cells_pos.size(); ++i) {
+        if(i == moveArea) break;
+        unordered_set<int>& placedCells = placement[cells_pos[i].first.x][cells_pos[i].first.y];
+        for(const int& idx : placedCells) {
+            if(cellGains[idx] > maxGain) {
+                maxGain = cellGains[idx];
+                selectedCell = idx;
+            }
+        }
+    }
+    if(maxGain == -10000) return 0;
+    Cell& rippleCell = cellInstances[selectedCell];
+    int rippleOriX = rippleCell.x, rippleOriY = rippleCell.y;
+    int ripple_wl = 0, wl = 0;
+    vector<pair<Point, int>> target_cells_pos;
+    opt_flag = find_force_pos(rippleCell, target_cells_pos);
+    if(opt_flag) return false;
+    bool ripple_success = 0, success = 0;
+    for(int i = 0; i < target_cells_pos.size(); ++i) {
+        if(i == moveArea) break;
+        Point to_p(target_cells_pos[i].first.x, target_cells_pos[i].first.y, 0);
+        ripple_success = move_cell_reroute_or_reverse(to_p, selectedCell, ripple_wl);
+        if(ripple_success) break;
+    }
+    cout << maxGain << " " << ripple_success << endl;
+    if(ripple_success) {
+        for(int i = 0; i < cells_pos.size(); ++i) {
+            Point to_p(cells_pos[i].first.x, cells_pos[i].first.y, 0);
+            success = move_cell_reroute_or_reverse(to_p, cellIdx, wl);
+            if(success) break;
+        }
+        if(success) {
+            net_wirelength = wl + ripple_wl;
+            return true;
+        }
+        else {
+            Point oriP(rippleOriX, rippleOriY, 0);
+            move_cell_reroute_or_reverse(oriP, selectedCell, ripple_wl);
+        }
+    }
+    net_wirelength = 0;
+    return false;
+}
+
 bool RoutingGraph::try_to_swap_into_force(int cellIdx, int& net_wirelength) {
     net_wirelength = 0;
     Cell& cell = cellInstances[cellIdx];
@@ -1308,7 +1360,15 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve) {
     for(int i = 0; i < cellInstances.size(); i++) {
         Cell& cell = cellInstances[i];
         vector<pair<Point, int>> cells_pos;
-        bool opt_flag = find_optimal_pos(cell, cells_pos);
+        //bool opt_flag = find_optimal_pos(cell, cells_pos);
+        bool opt_flag;
+        if(case3) {
+            opt_flag = find_optimal_pos(cell, cells_pos);
+        }
+        else {
+            if(mode == 0 || mode == 2) opt_flag = find_optimal_pos(cell, cells_pos);
+            else opt_flag = find_force_pos(cell, cells_pos);
+        }
         int gain = 0, accLength = 0;
         if(opt_flag) {
             Point to_p(cells_pos[0].first.x, cells_pos[0].first.y, 0);
@@ -1344,7 +1404,13 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve) {
             //cellGains[i] -= cell.fail_count*10;
             cellGains[i] -= cell.fail_count*failPenalty;
             //cellGains[i] -= (double)placement[cell.x][cell.y].size();
-            cellGains[i] += cells_pos[0].second/layerNormalize;
+            //cellGains[i] += cells_pos[0].second/layerNormalize;
+            for(int j = 0; j < cells_pos.size(); ++j) {
+                if(j == predictRegionSize) break;
+                //case1
+                if(case1) cellGains[j] += cells_pos[j].second/layerNormalize;
+                else cellGains[i] += cells_pos[j].second/layerNormalize;
+            }
         }
     }
 
@@ -1363,7 +1429,7 @@ void RoutingGraph::wirelength_driven_move(int& wl_improve) {
         }
         int candidate = *(candidateList.begin());
         candidateList.erase(candidate);
-        cellGains[candidate] = -100;
+        cellGains[candidate] = -10000;
         if(candidateList.empty())
             bucket.erase(bucket.begin());
         int wl=0;
@@ -1482,18 +1548,24 @@ bool RoutingGraph::move_cell_reroute_or_reverse(Point to_p, int cell_idx, int& n
             nets[netId].update_wirelength();
             all_net_wl -= nets[netId].wire_length;
         }
-        if(all_net_wl <= 0 /*&& mode == 2*/) routing_success = 0;
-        /*else if(all_net_wl <= 0) {
-            double exponent = (double)(all_net_wl*1000-100)/temperature;
-            exponent = exp(exponent);
-            double prob = dis(gen);
-            //cout << prob << " " << exponent << "\n";
-            if(prob > exponent) {
-                routing_success = 0;
+        if(openSA) {
+            if(all_net_wl <= 0 && mode == 2) routing_success = 0;
+            else if(all_net_wl <= 0) {
+                double exponent = (double)(all_net_wl*1000-100)/temperature;
+                exponent = exp(exponent);
+                double prob = dis(gen);
+                //cout << prob << " " << exponent << "\n";
+                if(prob > exponent) {
+                    routing_success = 0;
+                }
+                else net_wirelength = all_net_wl;
             }
             else net_wirelength = all_net_wl;
-        }*/
-        else net_wirelength = all_net_wl;
+        }
+        else {
+            if(all_net_wl <= 0) routing_success = 0;
+            else net_wirelength = all_net_wl;
+        }
     }
     if(routing_success) {
         if(cell.x != cell.originalX || cell.y != cell_ori_y)
@@ -2107,7 +2179,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x+1][local_p.y][local_p.z];
-            int future_cost = cost + 1;
+            //int future_cost = cost + 1;
+            int future_cost;
+            if(case3) future_cost = cost + 1;
+            else future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             //int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost) {    
                 p_q.emplace(new_p, future_cost);
@@ -2125,7 +2200,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x-1][local_p.y][local_p.z];
-            int future_cost = cost + 1;
+            //int future_cost = cost + 1;
+            int future_cost;
+            if(case3) future_cost = cost + 1;
+            else future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             //int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost) {       
                 p_q.emplace(new_p, future_cost);
@@ -2143,7 +2221,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x][local_p.y+1][local_p.z];
-            int future_cost = cost + 1;
+            //int future_cost = cost + 1;
+            int future_cost;
+            if(case3) future_cost = cost + 1;
+            else future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             //int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost) {       
                 p_q.emplace(new_p, future_cost);
@@ -2161,7 +2242,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x][local_p.y-1][local_p.z];
-            int future_cost = cost + 1;
+            //int future_cost = cost + 1;
+            int future_cost;
+            if(case3) future_cost = cost + 1;
+            else future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             //int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost) {       
                 p_q.emplace(new_p, future_cost);
@@ -2179,7 +2263,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x][local_p.y][local_p.z+1];
-            int future_cost = cost + 1;
+            //int future_cost = cost + 1;
+            int future_cost;
+            if(case3) future_cost = cost + 1;
+            else future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             //int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost + via_cost) {       
                 p_q.emplace(new_p, future_cost + via_cost);
@@ -2198,6 +2285,9 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x][local_p.y][local_p.z-1];
             //int future_cost = cost + 1;
+            //int future_cost;
+            //if(case3) future_cost = cost + 1;
+            //else future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
             if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost + via_cost) {       
                 p_q.emplace(new_p, future_cost + via_cost);

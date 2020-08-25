@@ -28,7 +28,7 @@ $(OBJ_DIR)/data_structure.o: data_structure.cc data_structure.h global_parameter
 $(OBJ_DIR)/segment_tree.o: segment_tree.cc segment_tree.h | obj_dir
 	$(CXX) $(CFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/output.o: output.cc output.h
+$(OBJ_DIR)/output.o: output.cc output.h data_structure.h | obj_dir
 	$(CXX) $(CFLAGS) -c $< -o $@
 
 obj_dir:

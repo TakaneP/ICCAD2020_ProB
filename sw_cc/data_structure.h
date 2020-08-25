@@ -209,6 +209,7 @@ public:
     void swap_into_optimal_region(void);
     bool try_to_swap_into_optimal(int cellIdx, int& net_wirelength);
     bool try_to_swap_into_force(int cellIdx, int& net_wirelength);
+    bool try_to_ripple_move_into_optimal(int cellIdx, int& net_wirelength, std::vector<double>& cellGains);
     bool find_optimal_pos_without_check_overflow(Cell& cell, std::vector<std::pair<Point, int>>& cells_pos);
     bool find_force_pos_without_check_overflow(Cell& cell, std::vector<std::pair<Point,int>>& cells_pos);
     void reroute_all_net();
