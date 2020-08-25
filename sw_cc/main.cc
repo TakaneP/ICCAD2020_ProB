@@ -65,6 +65,10 @@ int main(int argc, char* argv[])
             // else prevSize = routingGraph->movedCell.size();
             count++;
             temperature = (temperature>10)? temperature/10:1;
+            for(auto& net : routingGraph->nets) {
+                net.remove_dangling_wire(routingGraph->grids);
+            }
+
             if(firstTime) {
                 firstTime = false;
                 end = time(NULL);

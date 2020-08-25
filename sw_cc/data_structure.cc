@@ -418,7 +418,7 @@ void Net::remove_dangling_wire(vector<vector<vector<Gcell>>>& grids) {
             clear_steiner_point(tree_p, grids);
 
         // find dangling endpoint
-        if(treenode.node.type == -1) {
+        if( treenode.node.type == -1 || (treenode.node.type == 0 && treenode.neighbors.size() == 1) ) {
             Point neighbor = treenode.neighbors[0].first;
             TreeNode& effect_node = branch_nodes[neighbor];
             todo_points.push(neighbor);
@@ -2107,9 +2107,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x+1][local_p.y][local_p.z];
-            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > cost + 1) {    
-                p_q.emplace(new_p, cost + 1);
-                past_cost = cost+1;
+            int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost) {    
+                p_q.emplace(new_p, future_cost);
+                past_cost = future_cost;
                 visited_p[new_p] = f_point;
             }
         }
@@ -2123,9 +2124,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x-1][local_p.y][local_p.z];
-            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > cost + 1) {       
-                p_q.emplace(new_p, cost + 1);
-                past_cost = cost+1;
+            int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost) {       
+                p_q.emplace(new_p, future_cost);
+                past_cost = future_cost;
                 visited_p[new_p] = f_point;
             }
         }
@@ -2139,9 +2141,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x][local_p.y+1][local_p.z];
-            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > cost + 1) {       
-                p_q.emplace(new_p, cost + 1);
-                past_cost = cost+1;
+            int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost) {       
+                p_q.emplace(new_p, future_cost);
+                past_cost = future_cost;
                 visited_p[new_p] = f_point;
             }
         }
@@ -2155,9 +2158,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x][local_p.y-1][local_p.z];
-            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > cost + 1) {       
-                p_q.emplace(new_p, cost + 1);
-                past_cost = cost+1;
+            int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost) {       
+                p_q.emplace(new_p, future_cost);
+                past_cost = future_cost;
                 visited_p[new_p] = f_point;
             }
         }
@@ -2171,9 +2175,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x][local_p.y][local_p.z+1];
-            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > cost + 1 + via_cost) {       
-                p_q.emplace(new_p, cost + 1 + via_cost);
-                past_cost = cost+1+via_cost;
+            int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost + via_cost) {       
+                p_q.emplace(new_p, future_cost + via_cost);
+                past_cost = future_cost+via_cost;
                 visited_p[new_p] = f_point;
             }
         }
@@ -2187,9 +2192,10 @@ int RoutingGraph::tree2tree_routing(priority_queue<pair<Point,int>, vector<pair<
                 wire_length = 0;
             int remain = new_gcell.capacity-new_gcell.demand-wire_length;
             int& past_cost = cost_grid_map[local_p.x][local_p.y][local_p.z-1];
-            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > cost + 1 + via_cost) {       
-                p_q.emplace(new_p, cost + 1 + via_cost);
-                past_cost = cost+1+via_cost;
+            int future_cost = (remain > new_gcell.capacity/6) ? cost + 1 : cost + 1 + 1;
+            if(remain > 0 && visited_p.find(new_p) == visited_p.end() && past_cost > future_cost + via_cost) {       
+                p_q.emplace(new_p, future_cost + via_cost);
+                past_cost = future_cost+via_cost;
                 visited_p[new_p] = f_point;
             }
         }
