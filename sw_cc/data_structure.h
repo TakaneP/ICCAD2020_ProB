@@ -201,7 +201,7 @@ public:
     void del_cell_last_k_neighbor(int cellIndex, std::unordered_map<int, int>& netK); //key: netId, value: delete last k neighbors for that net
     void del_cell_point_net(int cellIndex, std::vector<std::pair<Point, int>>& point_nets);
     void construct_2pin_nets();
-    // mode 0: optimal region, mode 1: force
+    // mode 0: optimal region, mode 1: force, mode 2: just reroute
     void wirelength_driven_move(int& wl_improve);
     bool swap_two_cells(int cell_idx1, int cell_idx2, int& net_wirelength);
     bool move_cell_into_optimal_region(int cell_idx, int& net_wirelength);
